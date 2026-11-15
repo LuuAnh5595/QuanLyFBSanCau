@@ -9,19 +9,24 @@ import { PostsPage } from './pages/PostsPage';
 import { MediaPage } from './pages/MediaPage';
 import { IdeasPage } from './pages/IdeasPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AlertTriangle, Link2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('home');
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [workerUrlInput, setWorkerUrlInput] = useState(api.getBackendUrl());
   const { toast } = useFeedback();
 
   const loadSummary = async () => {
     try {
       const data = await api.getSummary();
       setSummary(data);
-    } catch (err) {
+      setConnectionError(null);
+    } catch (err: any) {
       console.error('Lỗi tải summary:', err);
+      setConnectionError(err.message || 'Không thể kết nối Backend Worker');
     }
   };
 
@@ -30,6 +35,16 @@ export const App: React.FC = () => {
     const interval = setInterval(loadSummary, 30000); // Polling 30s
     return () => clearInterval(interval);
   }, []);
+
+  const handleSaveWorkerUrl = () => {
+    if (!workerUrlInput.trim()) {
+      toast.error('Vui lòng nhập URL Cloudflare Worker');
+      return;
+    }
+    api.setBackendUrl(workerUrlInput.trim());
+    toast.success('Đã lưu URL Backend! Đang thử kết nối lại...');
+    loadSummary();
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -97,6 +112,41 @@ export const App: React.FC = () => {
 
       {/* Main Content Area (Max width mobile friendly) */}
       <main className="flex-1 max-w-lg w-full mx-auto p-4 pb-20">
+        {/* Connection Error Banner (Nếu chưa kết nối Worker) */}
+        {connectionError && (
+          <div className="mb-4 bg-amber-50 border border-amber-300 rounded-2xl p-3.5 shadow-sm space-y-2.5 animate-in fade-in">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5 flex-1">
+                <h4 className="text-xs font-bold text-amber-900">
+                  Chưa kết nối Cloudflare Worker (Backend API)
+                </h4>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Trang web đang chạy trên Cloudflare Pages nhưng chưa biết địa chỉ của Backend Worker. Vui lòng dán URL Worker của bạn vào bên dưới:
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+              <input
+                type="url"
+                value={workerUrlInput}
+                onChange={(e) => setWorkerUrlInput(e.target.value)}
+                placeholder="https://quan-ly-fb-san-cau.<subdomain>.workers.dev"
+                className="flex-1 px-3 py-1.5 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleSaveWorkerUrl}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 flex items-center justify-center gap-1"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                <span>Lưu & Kết nối</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {currentTab === 'home' && (
           <HomePage
             summary={summary}

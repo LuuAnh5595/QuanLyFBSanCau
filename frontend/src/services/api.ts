@@ -1,69 +1,108 @@
 import { Post, MediaItem, Idea, DashboardSummary } from '../types';
 
-// Trong production có thể cấu hình VITE_API_BASE_URL (URL của Cloudflare Worker)
-// Nếu không cấu hình sẽ mặc định dùng '/api' (proxy cùng domain hoặc local)
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || '/api';
+export const getApiBase = (): string => {
+  const custom = localStorage.getItem('custom_backend_url');
+  if (custom && custom.trim()) {
+    let clean = custom.trim().replace(/\/$/, '');
+    if (!clean.endsWith('/api')) {
+      clean += '/api';
+    }
+    return clean;
+  }
+
+  if (import.meta.env.VITE_API_BASE_URL) {
+    let envUrl = (import.meta.env.VITE_API_BASE_URL as string).trim().replace(/\/$/, '');
+    if (!envUrl.endsWith('/api')) {
+      envUrl += '/api';
+    }
+    return envUrl;
+  }
+
+  return '/api';
+};
+
+async function fetchJson(url: string, options?: RequestInit): Promise<any> {
+  let res: Response;
+  try {
+    res = await fetch(url, options);
+  } catch (err: any) {
+    throw new Error(`Không thể kết nối đến máy chủ API (${url}): ${err.message}`);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    if (text.startsWith('<!doctype') || text.startsWith('<html')) {
+      throw new Error(
+        'Chưa kết nối được với Backend Worker! Cloudflare đang trả về trang HTML thay vì dữ liệu JSON. Bạn hãy nhập URL Cloudflare Worker vào ô thiết lập.'
+      );
+    }
+    throw new Error(`Phản hồi máy chủ không hợp lệ (${res.status}): ${text.slice(0, 100)}`);
+  }
+
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Thao tác thất bại');
+  return json;
+}
 
 export const api = {
+  getBackendUrl(): string {
+    return localStorage.getItem('custom_backend_url') || '';
+  },
+
+  setBackendUrl(url: string): void {
+    if (!url.trim()) {
+      localStorage.removeItem('custom_backend_url');
+    } else {
+      localStorage.setItem('custom_backend_url', url.trim());
+    }
+  },
+
   // Summary
   async getSummary(): Promise<DashboardSummary> {
-    const res = await fetch(`${API_BASE}/settings/summary`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/settings/summary`);
     return json.data;
   },
 
   // Posts
   async getPosts(status: string = 'all'): Promise<Post[]> {
-    const res = await fetch(`${API_BASE}/posts?status=${status}`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/posts?status=${status}`);
     return json.data;
   },
 
   async generatePost(data: { topic?: string; description?: string; tone?: string; media_id?: string }): Promise<Post> {
-    const res = await fetch(`${API_BASE}/posts/generate`, {
+    const json = await fetchJson(`${getApiBase()}/posts/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
     return json.data;
   },
 
   async updatePost(id: string, data: { content: string; status?: string; media_ids?: string }): Promise<Post> {
-    const res = await fetch(`${API_BASE}/posts/${id}`, {
+    const json = await fetchJson(`${getApiBase()}/posts/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
     return json.data;
   },
 
   async publishPost(id: string): Promise<{ id: string; postUrl: string }> {
-    const res = await fetch(`${API_BASE}/posts/${id}/publish`, {
+    const json = await fetchJson(`${getApiBase()}/posts/${id}/publish`, {
       method: 'POST'
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
     return json.data;
   },
 
   async deletePost(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/posts/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    await fetchJson(`${getApiBase()}/posts/${id}`, { method: 'DELETE' });
   },
 
   // Media
   async getMedia(tag?: string): Promise<MediaItem[]> {
-    const url = tag ? `${API_BASE}/media?tag=${encodeURIComponent(tag)}` : `${API_BASE}/media`;
-    const res = await fetch(url);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const url = tag ? `${getApiBase()}/media?tag=${encodeURIComponent(tag)}` : `${getApiBase()}/media`;
+    const json = await fetchJson(url);
     return json.data;
   },
 
@@ -72,124 +111,102 @@ export const api = {
     formData.append('file', file);
     formData.append('tags', tags);
 
-    const res = await fetch(`${API_BASE}/media/upload`, {
+    const res = await fetch(`${getApiBase()}/media/upload`, {
       method: 'POST',
       body: formData
     });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('Chưa kết nối được với Backend Worker khi upload ảnh');
+    }
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     return json.data;
   },
 
-  async importMediaUrl(url: string, tags: string, fileName?: string): Promise<MediaItem> {
-    const res = await fetch(`${API_BASE}/media/import-url`, {
+  async importMediaUrl(url: string, tags: string = 'san_bai', fileName?: string): Promise<MediaItem> {
+    const json = await fetchJson(`${getApiBase()}/media/import-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, tags, file_name: fileName })
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
     return json.data;
   },
 
   async deleteMedia(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/media/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    await fetchJson(`${getApiBase()}/media/${id}`, { method: 'DELETE' });
   },
 
   // Ideas
   async getIdeas(status: string = 'all'): Promise<Idea[]> {
-    const res = await fetch(`${API_BASE}/ideas?status=${status}`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/ideas?status=${status}`);
     return json.data;
   },
 
   async addIdea(topic: string, description?: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/ideas`, {
+    await fetchJson(`${getApiBase()}/ideas`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topic, description })
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
   },
 
   async brainstormIdeas(theme?: string, count: number = 5): Promise<Idea[]> {
-    const res = await fetch(`${API_BASE}/ideas/brainstorm`, {
+    const json = await fetchJson(`${getApiBase()}/ideas/brainstorm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ theme, count })
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
     return json.data;
   },
 
   async updateIdeaStatus(id: string, status: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/ideas/${id}/status`, {
+    await fetchJson(`${getApiBase()}/ideas/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
   },
 
   async deleteIdea(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/ideas/${id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    await fetchJson(`${getApiBase()}/ideas/${id}`, { method: 'DELETE' });
   },
 
   // Settings
   async getSettings(): Promise<Record<string, string>> {
-    const res = await fetch(`${API_BASE}/settings`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/settings`);
     return json.data;
   },
 
   async saveSettings(configs: Record<string, string>): Promise<void> {
-    const res = await fetch(`${API_BASE}/settings`, {
+    await fetchJson(`${getApiBase()}/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(configs)
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
   },
 
   async testTelegram(data?: { token?: string; chatId?: string }): Promise<string> {
-    const res = await fetch(`${API_BASE}/settings/test-telegram`, {
+    const json = await fetchJson(`${getApiBase()}/settings/test-telegram`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data || {})
     });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
     return json.message;
   },
 
   async testFacebook(): Promise<string> {
-    const res = await fetch(`${API_BASE}/settings/test-facebook`, { method: 'POST' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/settings/test-facebook`, { method: 'POST' });
     return json.message;
   },
 
   async testGemini(): Promise<{ message: string; preview: string; model?: string }> {
-    const res = await fetch(`${API_BASE}/settings/test-gemini`, { method: 'POST' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/settings/test-gemini`, { method: 'POST' });
     return { message: json.message, preview: json.preview, model: json.model };
   },
 
   async triggerCron(): Promise<string> {
-    const res = await fetch(`${API_BASE}/settings/trigger-cron`, { method: 'POST' });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
+    const json = await fetchJson(`${getApiBase()}/settings/trigger-cron`, { method: 'POST' });
     return json.message;
   }
 };

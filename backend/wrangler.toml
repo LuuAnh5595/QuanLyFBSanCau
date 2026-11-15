@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "fb-san-cau-db"
-database_id = "fb-san-cau-db-id"
+database_id = "a3a6240a-509b-4249-b54c-e7d5512f13b2"
 
 # Cloudflare R2 Storage binding
 [[r2_buckets]]

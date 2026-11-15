@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useFeedback } from '../context/FeedbackContext';
-import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle } from 'lucide-react';
+import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle, Link2, Globe } from 'lucide-react';
 
 const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông (Badminton Court).
 Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác.
@@ -33,6 +33,7 @@ export const SettingsPage: React.FC = () => {
   const [testingGemini, setTestingGemini] = useState(false);
   const [testingCron, setTestingCron] = useState(false);
   const [newSlotTime, setNewSlotTime] = useState('08:30');
+  const [backendUrl, setBackendUrl] = useState(api.getBackendUrl());
   const { toast } = useFeedback();
 
   const [testResult, setTestResult] = useState<{ type: string; message: string; isError?: boolean } | null>(null);
@@ -74,6 +75,12 @@ export const SettingsPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveBackendUrl = () => {
+    api.setBackendUrl(backendUrl);
+    toast.success('Đã cập nhật URL Backend Worker! Đang tải lại...');
+    loadSettings();
   };
 
   const handleTestTelegram = async () => {
@@ -197,6 +204,47 @@ export const SettingsPage: React.FC = () => {
       )}
 
       <form onSubmit={handleSave} className="space-y-4">
+        {/* Section: Cloudflare Worker API Connection */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-blue-600" />
+              <span>Kết nối Backend API (Cloudflare Worker)</span>
+            </h3>
+            <button
+              type="button"
+              onClick={handleSaveBackendUrl}
+              className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold hover:underline flex items-center gap-1"
+            >
+              <Link2 className="w-3 h-3" />
+              <span>Áp dụng URL</span>
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">URL Cloudflare Worker:</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={backendUrl}
+                onChange={(e) => setBackendUrl(e.target.value)}
+                placeholder="https://quan-ly-fb-san-cau.<your-subdomain>.workers.dev"
+                className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={handleSaveBackendUrl}
+                className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0"
+              >
+                Lưu
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Điền URL Worker của bạn sau khi deploy backend (ví dụ: <code className="text-slate-600">https://quan-ly-fb-san-cau.xxx.workers.dev</code>). Để trống nếu chạy proxy cùng domain hoặc chạy local.
+            </p>
+          </div>
+        </div>
+
         {/* Section: Auto-Post Master Switch & Scheduling */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4">
           <div className="flex items-center justify-between border-b pb-2">
