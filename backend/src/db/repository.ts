@@ -35,6 +35,13 @@ export class D1Repository {
     return row || null;
   }
 
+  async ensureDefaultFanpage(): Promise<void> {
+    await this.db.prepare(`
+      INSERT OR IGNORE INTO fanpages (id, name, fb_page_id, access_token, is_active)
+      VALUES ('default_page', 'Fanpage Sân Cầu Lông', '', '', 1)
+    `).run();
+  }
+
   async getFanpageById(id: string): Promise<Fanpage | null> {
     return await this.db.prepare('SELECT * FROM fanpages WHERE id = ?').bind(id).first<Fanpage>();
   }
@@ -87,6 +94,7 @@ export class D1Repository {
   }
 
   async createPost(post: Partial<Post> & { id: string; fanpage_id: string; content: string }): Promise<Post> {
+    await this.ensureDefaultFanpage();
     await this.db.prepare(`
       INSERT INTO posts (id, fanpage_id, idea_id, content, media_ids, status, scheduled_for, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -166,6 +174,7 @@ export class D1Repository {
   }
 
   async addIdea(idea: { id: string; fanpage_id?: string; topic: string; description?: string; generated_by?: 'ai' | 'user' }): Promise<void> {
+    await this.ensureDefaultFanpage();
     await this.db.prepare(`
       INSERT INTO ideas (id, fanpage_id, topic, description, status, generated_by, created_at)
       VALUES (?, ?, ?, ?, 'pending', ?, CURRENT_TIMESTAMP)
