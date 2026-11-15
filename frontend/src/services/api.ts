@@ -1,6 +1,8 @@
 import { Post, MediaItem, Idea, DashboardSummary } from '../types';
 
-const API_BASE = '/api';
+// Trong production có thể cấu hình VITE_API_BASE_URL (URL của Cloudflare Worker)
+// Nếu không cấu hình sẽ mặc định dùng '/api' (proxy cùng domain hoặc local)
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || '/api';
 
 export const api = {
   // Summary
