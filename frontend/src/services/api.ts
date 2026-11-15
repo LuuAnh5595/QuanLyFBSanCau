@@ -18,6 +18,11 @@ export const getApiBase = (): string => {
     return envUrl;
   }
 
+  // Tự động kết nối Backend Worker trên Cloudflare nếu đang chạy trên cloudflare workers
+  if (typeof window !== 'undefined' && window.location.hostname.includes('workers.dev')) {
+    return 'https://quan-ly-fb-san-cau.luutuananh050595.workers.dev/api';
+  }
+
   return '/api';
 };
 
