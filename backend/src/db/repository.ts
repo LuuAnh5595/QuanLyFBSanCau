@@ -71,8 +71,43 @@ export class D1Repository {
     }
     const countRow = await this.db.prepare(countQuery).bind(...countParams).first<{ count: number }>();
 
+    const posts = results || [];
+    const allMediaIds = new Set<string>();
+    for (const p of posts) {
+      if (p.media_ids) {
+        p.media_ids.split(',').forEach(id => {
+          const trimmed = id.trim();
+          if (trimmed) allMediaIds.add(trimmed);
+        });
+      }
+    }
+
+    if (allMediaIds.size > 0) {
+      const idArray = Array.from(allMediaIds);
+      const placeholders = idArray.map(() => '?').join(',');
+      const { results: mediaResults } = await this.db.prepare(
+        `SELECT * FROM media WHERE id IN (${placeholders})`
+      ).bind(...idArray).all<MediaItem>();
+
+      const mediaMap = new Map<string, MediaItem>();
+      (mediaResults || []).forEach(m => mediaMap.set(m.id, m));
+
+      for (const p of posts) {
+        if (p.media_ids) {
+          const ids = p.media_ids.split(',').map(s => s.trim()).filter(Boolean);
+          p.media = ids.map(id => mediaMap.get(id)).filter(Boolean) as MediaItem[];
+        } else {
+          p.media = [];
+        }
+      }
+    } else {
+      for (const p of posts) {
+        p.media = [];
+      }
+    }
+
     return {
-      posts: results || [],
+      posts,
       total: countRow ? countRow.count : 0
     };
   }
@@ -216,14 +251,21 @@ export class D1Repository {
   }
 
   async getRandomMedia(tag?: string): Promise<MediaItem | null> {
-    let query = 'SELECT * FROM media';
+    let query = 'SELECT * FROM media WHERE (public_url NOT LIKE "%/folders/%" OR public_url IS NULL)';
     const params: any[] = [];
     if (tag) {
-      query += ' WHERE tags LIKE ?';
+      query += ' AND tags LIKE ?';
       params.push(`%${tag}%`);
     }
     query += ' ORDER BY RANDOM() LIMIT 1';
-    const row = await this.db.prepare(query).bind(...params).first<MediaItem>();
+    let row = await this.db.prepare(query).bind(...params).first<MediaItem>();
+
+    // Nếu tìm theo tag không thấy, tự động fallback lấy ngẫu nhiên ảnh bất kỳ hợp lệ trong kho
+    if (!row && tag) {
+      row = await this.db.prepare(
+        'SELECT * FROM media WHERE (public_url NOT LIKE "%/folders/%" OR public_url IS NULL) ORDER BY RANDOM() LIMIT 1'
+      ).first<MediaItem>();
+    }
     return row || null;
   }
 

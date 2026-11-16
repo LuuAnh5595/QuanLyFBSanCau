@@ -76,6 +76,14 @@ mediaRouter.post('/import-url', async (c) => {
     return c.json({ success: false, message: 'Vui lòng cung cấp đường dẫn ảnh hoặc liên kết Google Drive' }, 400);
   }
 
+  // Cảnh báo nếu người dùng nhập nhầm link Folder thay vì link file ảnh
+  if (rawUrl.includes('/folders/')) {
+    return c.json({
+      success: false,
+      message: 'Đường dẫn bạn nhập là liên kết Thư mục (Folder) Google Drive. Để AI lấy được ảnh, vui lòng mở thư mục trên Drive, nhấp chuột phải vào từng file ảnh > Chia sẻ > Sao chép liên kết rồi dán vào đây.'
+    }, 400);
+  }
+
   let finalUrl = rawUrl;
   let sourceType: 'gdrive' | 'external_url' = 'external_url';
 
