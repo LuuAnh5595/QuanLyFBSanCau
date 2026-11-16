@@ -4,6 +4,7 @@ import { D1Repository } from '../db/repository';
 import { TelegramService } from '../services/telegram';
 import { FacebookService } from '../services/facebook';
 import { GeminiService } from '../services/gemini';
+import { GoogleDriveService } from '../services/googleDrive';
 
 const telegramWebhookRouter = new Hono<{ Bindings: Env }>();
 
@@ -168,6 +169,120 @@ telegramWebhookRouter.post('/', async (c) => {
       }
 
       await repo.addLog('info', 'telegram_rejected', { postId });
+      return c.json({ ok: true });
+    }
+  }
+
+  // 3. XỬ LÝ KHI NGƯỜI DÙNG GỬI ẢNH HOẶC TIN NHẮN ĐẾN BOT
+  if (update.message) {
+    const msg = update.message;
+    const chatId = msg.chat?.id;
+
+    // A. Người dùng gửi ảnh (hoặc ảnh có kèm caption)
+    if (msg.photo && msg.photo.length > 0) {
+      const largestPhoto = msg.photo[msg.photo.length - 1];
+      const fileId = largestPhoto.file_id;
+
+      try {
+        // Lấy đường dẫn file từ Telegram API
+        const fileRes = await fetch(`https://api.telegram.org/bot${telegramToken}/getFile?file_id=${fileId}`);
+        const fileJson: any = await fileRes.json();
+
+        if (fileJson.ok && fileJson.result?.file_path) {
+          const filePath = fileJson.result.file_path;
+          const telegramDownloadUrl = `https://api.telegram.org/file/bot${telegramToken}/${filePath}`;
+
+          // Tải dữ liệu ảnh dạng buffer
+          const imgRes = await fetch(telegramDownloadUrl);
+          const imgBuffer = await imgRes.arrayBuffer();
+
+          // Xác định Tag từ caption hoặc mặc định
+          const caption = (msg.caption || '').trim();
+          let tag = 'giao_luu';
+          if (/san_bai|sân bãi|sanbai/i.test(caption)) tag = 'san_bai';
+          else if (/khuyen_mai|khuyến mãi|khuyenmai|giamgia|giảm giá/i.test(caption)) tag = 'khuyen_mai';
+          else if (/ky_thuat|kỹ thuật|kythuat|meo|mẹo/i.test(caption)) tag = 'ky_thuat';
+
+          const fileName = caption ? caption.slice(0, 50) : `Ảnh Telegram (${new Date().toLocaleTimeString('vi-VN')})`;
+
+          let publicUrl = telegramDownloadUrl;
+          let sourceType: 'gdrive' | 'telegram' = 'telegram';
+          let gdriveSyncSuccess = false;
+
+          // Nếu có cấu hình Google Drive Script URL -> Đồng bộ luôn lên Drive!
+          const gdriveScriptUrl = configs['gdrive_script_url'];
+          if (gdriveScriptUrl) {
+            const gdrive = new GoogleDriveService(gdriveScriptUrl);
+            if (gdrive.isConfigured()) {
+              // Convert buffer to base64
+              let binary = '';
+              const bytes = new Uint8Array(imgBuffer);
+              for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+              }
+              const base64 = btoa(binary);
+
+              const uploadRes = await gdrive.uploadFile({
+                fileName: `badminton_${Date.now()}.jpg`,
+                mimeType: 'image/jpeg',
+                base64
+              });
+
+              if (uploadRes.success && uploadRes.url) {
+                publicUrl = uploadRes.url;
+                sourceType = 'gdrive';
+                gdriveSyncSuccess = true;
+              }
+            }
+          }
+
+          // Lưu vào CSDL D1 media
+          const mediaId = 'media_tg_' + Date.now();
+          await repo.addMedia({
+            id: mediaId,
+            fanpage_id: 'default_page',
+            source_type: sourceType,
+            file_name: fileName,
+            public_url: publicUrl,
+            tags: tag
+          });
+
+          await repo.addLog('info', 'telegram_photo_received', {
+            mediaId,
+            tag,
+            syncedToDrive: gdriveSyncSuccess
+          });
+
+          // Phản hồi cho người dùng
+          let replyMsg = `📸 <b>ĐÃ THÊM ẢNH VÀO KHO THÀNH CÔNG!</b>\n\n`;
+          replyMsg += `🏷️ <b>Tag phân loại:</b> <code>#${tag}</code>\n`;
+          replyMsg += `📁 <b>Kho lưu trữ:</b> Đã lưu vào Kho AI\n`;
+          if (gdriveSyncSuccess) {
+            replyMsg += `☁️ <b>Google Drive:</b> Đã đồng bộ lên Drive thành công! ✅\n`;
+          } else if (configs['gdrive_script_url']) {
+            replyMsg += `⚠️ <i>Lưu ý: Không thể đồng bộ lên Google Drive (Kiểm tra lại Script URL)</i>\n`;
+          }
+          replyMsg += `\n🏸 <i>Ảnh này đã sẵn sàng để AI tự động chọn khi viết bài!</i>`;
+
+          await telegram.sendReply(chatId, replyMsg);
+        }
+      } catch (err: any) {
+        console.error('Error handling Telegram photo:', err);
+        await telegram.sendReply(chatId, `❌ Lỗi khi lưu ảnh: ${err.message}`);
+      }
+
+      return c.json({ ok: true });
+    }
+
+    // B. Lệnh /start hoặc /help
+    if (msg.text === '/start' || msg.text === '/help') {
+      const helpMsg = `🏸 <b>BOT QUẢN LÝ FANPAGE SÂN CẦU TUỔI TRẺ</b>\n\n` +
+        `Chào bạn! Bot này giúp bạn:\n` +
+        `1. 📩 <b>Nhận thông báo & duyệt bài viết AI</b> (Bấm Duyệt để đăng lên Facebook ngay lập tức).\n` +
+        `2. 📸 <b>Thêm ảnh vào kho siêu nhanh:</b> Bạn chỉ cần chụp ảnh và gửi trực tiếp ảnh vào đây (kèm caption như <i>#giaoluu, #sanbai</i> nếu muốn).\n` +
+        `3. 🔄 <b>Tự động đồng bộ lên Google Drive</b> nếu đã cấu hình.\n\n` +
+        `<i>Hãy thử gửi 1 bức ảnh vào đây ngay bây giờ nhé!</i>`;
+      await telegram.sendReply(chatId, helpMsg);
       return c.json({ ok: true });
     }
   }

@@ -209,6 +209,19 @@ export class TelegramService {
     }
   }
 
+  async sendReply(chatId: string | number, text: string): Promise<void> {
+    if (!this.botToken) return;
+    await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML'
+      })
+    }).catch(() => null);
+  }
+
   async sendAlert(message: string, customChatId?: string): Promise<void> {
     if (!this.botToken) throw new Error('Chưa cấu hình Telegram Bot Token');
     const chatId = customChatId || this.defaultChatId;

@@ -25,6 +25,19 @@ settingsRouter.put('/', async (c) => {
     }
   }
 
+  // Tự động kích hoạt Webhook cho Telegram Bot
+  const token = body['telegram_bot_token'] || (await repo.getConfig('telegram_bot_token'));
+  if (token) {
+    const origin = new URL(c.req.url).origin;
+    const webhookUrl = `${origin}/api/telegram/webhook`;
+    const secret = body['telegram_webhook_secret'] || (await repo.getConfig('telegram_webhook_secret')) || c.env.TELEGRAM_WEBHOOK_SECRET || 'telegram_secret_token_123';
+    await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: webhookUrl, secret_token: secret })
+    }).catch(() => null);
+  }
+
   await repo.addLog('info', 'settings_updated', 'Cập nhật cấu hình hệ thống');
   return c.json({ success: true, message: 'Đã lưu cấu hình thành công' });
 });
@@ -84,8 +97,18 @@ settingsRouter.post('/test-telegram', async (c) => {
       }, 400);
     }
 
-    // Bước 3: Gửi tin nhắn test
-    await telegram.sendAlert(`🎉 <b>Kiểm tra kết nối thành công!</b>\nBot @${botInfo.username} đã kết nối chuẩn xác với Hệ thống Quản lý Fanpage Sân Cầu của bạn.`);
+    // Bước 3: Đăng ký Webhook cho Bot để nhận nút bấm duyệt và ảnh gửi từ người dùng
+    const origin = new URL(c.req.url).origin;
+    const webhookUrl = `${origin}/api/telegram/webhook`;
+    const secret = configs['telegram_webhook_secret'] || c.env.TELEGRAM_WEBHOOK_SECRET || 'telegram_secret_token_123';
+    await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: webhookUrl, secret_token: secret })
+    }).catch(() => null);
+
+    // Bước 4: Gửi tin nhắn test
+    await telegram.sendAlert(`🎉 <b>Kiểm tra kết nối thành công!</b>\nBot @${botInfo.username} đã kết nối chuẩn xác với Hệ thống Quản lý Fanpage Sân Cầu của bạn.\n\n📸 <i>Từ bây giờ, bạn có thể gửi trực tiếp ảnh vào bot này để nạp vào kho bài viết!</i>`);
 
     return c.json({
       success: true,

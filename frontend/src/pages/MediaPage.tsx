@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MediaItem } from '../types';
 import { api } from '../services/api';
 import { useFeedback } from '../context/FeedbackContext';
-import { Image, Upload, Link as LinkIcon, Trash2, Tag, Loader2, Plus, ExternalLink } from 'lucide-react';
+import { Image, Upload, Link as LinkIcon, Trash2, Tag, Loader2, Plus, ExternalLink, RefreshCw, Send, CheckCircle2 } from 'lucide-react';
 
 export const MediaPage: React.FC = () => {
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
@@ -14,6 +14,7 @@ export const MediaPage: React.FC = () => {
   const [importTag, setImportTag] = useState('san_bai');
   const [importName, setImportName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast, confirm } = useFeedback();
@@ -80,6 +81,19 @@ export const MediaPage: React.FC = () => {
     }
   };
 
+  const handleSyncGoogleDrive = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await api.syncGoogleDrive();
+      toast.success(res.message);
+      loadMedia(selectedTag);
+    } catch (err: any) {
+      toast.error('Đồng bộ Drive: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     const ok = await confirm({
       title: 'Xóa ảnh khỏi kho',
@@ -110,11 +124,21 @@ export const MediaPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handleSyncGoogleDrive}
+            disabled={isSyncing}
+            className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50"
+            title="Quét toàn bộ ảnh mới từ Folder Google Drive"
+          >
+            {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" /> : <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />}
+            <span>Đồng bộ từ Drive</span>
+          </button>
+
+          <button
             onClick={() => setShowImportUrlModal(true)}
             className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors flex items-center gap-1"
           >
             <LinkIcon className="w-3.5 h-3.5 text-blue-500" />
-            <span>Thêm từ Drive</span>
+            <span>Thêm link ảnh</span>
           </button>
 
           <button
@@ -132,6 +156,18 @@ export const MediaPage: React.FC = () => {
             className="hidden"
             onChange={handleFileUpload}
           />
+        </div>
+      </div>
+
+      {/* Tip Banner: Upload from Telegram */}
+      <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 text-slate-700">
+          <span className="p-1.5 bg-blue-500 text-white rounded-lg shrink-0">
+            <Send className="w-3.5 h-3.5" />
+          </span>
+          <div>
+            <strong className="text-blue-900">Cách nạp ảnh nhanh nhất:</strong> Bạn chỉ cần mở Telegram trên điện thoại và gửi trực tiếp ảnh vào Bot! Ảnh sẽ tự động được nạp vào kho AI và đồng bộ lên Google Drive.
+          </div>
         </div>
       </div>
 

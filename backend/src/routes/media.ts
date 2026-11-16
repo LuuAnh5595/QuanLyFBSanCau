@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { Env } from '../types/env';
 import { D1Repository } from '../db/repository';
+import { GoogleDriveService } from '../services/googleDrive';
 
 const mediaRouter = new Hono<{ Bindings: Env }>();
 
@@ -151,6 +152,56 @@ mediaRouter.get('/file/*', async (c) => {
   headers.set('Cache-Control', 'public, max-age=31536000');
 
   return new Response(object.body, { headers });
+});
+
+// Đồng bộ toàn bộ ảnh từ Google Drive Folder về D1
+mediaRouter.post('/sync-gdrive', async (c) => {
+  const repo = new D1Repository(c.env.DB);
+  const configs = await repo.getAllConfigs();
+  const scriptUrl = configs['gdrive_script_url'];
+
+  if (!scriptUrl) {
+    return c.json({
+      success: false,
+      message: 'Chưa cấu hình Google Apps Script Webhook trong Cài đặt hệ thống.'
+    }, 400);
+  }
+
+  const gdrive = new GoogleDriveService(scriptUrl);
+  const result = await gdrive.listFiles();
+
+  if (!result.success || !result.files) {
+    return c.json({ success: false, message: result.error || 'Lỗi khi quét thư mục Google Drive' }, 500);
+  }
+
+  const currentMedia = await repo.getMediaList({ limit: 500 });
+  const existingUrls = new Set(currentMedia.map(m => m.public_url));
+
+  let addedCount = 0;
+  for (const file of result.files) {
+    if (!existingUrls.has(file.url)) {
+      const mediaId = 'media_gdrive_' + file.id;
+      await repo.addMedia({
+        id: mediaId,
+        fanpage_id: 'default_page',
+        source_type: 'gdrive',
+        file_name: file.name || 'Ảnh Google Drive',
+        public_url: file.url,
+        tags: 'giao_luu'
+      });
+      existingUrls.add(file.url);
+      addedCount++;
+    }
+  }
+
+  await repo.addLog('info', 'gdrive_synced', { totalInDrive: result.files.length, newlyAdded: addedCount });
+
+  return c.json({
+    success: true,
+    message: `Đã quét thấy ${result.files.length} ảnh trên Google Drive (Thêm mới ${addedCount} ảnh vào kho AI)!`,
+    addedCount,
+    totalCount: result.files.length
+  });
 });
 
 export { mediaRouter };

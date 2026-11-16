@@ -657,6 +657,86 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Section: Google Drive Webhook (Đồng bộ ảnh tự động) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-blue-600 font-bold">☁️</span>
+              <span>Đồng bộ Google Drive (Google Apps Script Webhook)</span>
+            </h3>
+            <span className="text-[11px] text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded-full">Tự động 2 chiều</span>
+          </div>
+
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Cho phép khi bạn gửi ảnh qua Telegram Bot, ảnh sẽ <strong>tự động lưu vào Thư mục Google Drive</strong> của bạn, hoặc bấm nút quét toàn bộ thư mục Drive vào Kho AI.
+          </p>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Google Apps Script Web App URL:</label>
+            <input
+              type="url"
+              value={configs['gdrive_script_url'] || ''}
+              onChange={(e) => handleChange('gdrive_script_url', e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+            />
+          </div>
+
+          {/* Guide Card with 1-click Copy */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+            <div className="font-semibold text-slate-800 flex items-center gap-1">
+              <span>📋 Hướng dẫn tạo Script Google Drive trong 2 phút:</span>
+            </div>
+            <ol className="list-decimal list-inside text-slate-600 space-y-1 text-[11px] leading-relaxed">
+              <li>Mở Google Drive, tạo 1 thư mục (ví dụ: <code className="bg-white px-1 border rounded">Anh_San_Tuoi_Tre</code>) và copy <strong>ID Thư mục</strong> từ thanh địa chỉ trình duyệt.</li>
+              <li>Truy cập <a href="https://script.google.com" target="_blank" rel="noreferrer" className="text-blue-600 underline font-medium">script.google.com</a>, bấm <strong>Dự án mới (New project)</strong>.</li>
+              <li>Dán đoạn mã bên dưới vào, thay <code className="bg-white px-1 border rounded">DIEN_ID_THU_MUC_DRIVE_VAO_DAY</code> bằng ID thư mục của bạn.</li>
+              <li>Bấm <strong>Triển khai (Deploy)</strong> &gt; <strong>Tùy chọn triển khai mới (New deployment)</strong> &gt; Chọn loại <strong>Ứng dụng web (Web app)</strong> &gt; Quyền truy cập: <strong>Bất kỳ ai (Anyone)</strong>.</li>
+              <li>Copy đường link Web App (dạng <code className="bg-white px-1 border rounded">.../exec</code>) và dán vào ô bên trên rồi bấm Lưu.</li>
+            </ol>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const code = `const FOLDER_ID = "DIEN_ID_THU_MUC_DRIVE_VAO_DAY";
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const folder = DriveApp.getFolderById(FOLDER_ID);
+    if (data.action === "upload") {
+      const decoded = Utilities.base64Decode(data.base64);
+      const blob = Utilities.newBlob(decoded, data.mimeType || "image/jpeg", data.fileName || "badminton.jpg");
+      const file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      const fileId = file.getId();
+      return ContentService.createTextOutput(JSON.stringify({ success: true, fileId: fileId, url: "https://lh3.googleusercontent.com/d/" + fileId })).setMimeType(ContentService.MimeType.JSON);
+    }
+    if (data.action === "list") {
+      const files = folder.getFiles();
+      const list = [];
+      while (files.hasNext()) {
+        const f = files.next();
+        list.push({ id: f.getId(), name: f.getName(), url: "https://lh3.googleusercontent.com/d/" + f.getId(), mimeType: f.getMimeType() });
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: true, files: list })).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+                  navigator.clipboard.writeText(code);
+                  toast.success('Đã sao chép mã Google Apps Script mẫu vào bộ nhớ tạm!');
+                }}
+                className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-[11px] font-semibold hover:bg-slate-100 flex items-center gap-1.5 transition-colors"
+              >
+                <Code className="w-3.5 h-3.5 text-blue-600" />
+                <span>Sao chép mã Google Apps Script mẫu</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Section: Facebook Page */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
           <div className="flex items-center justify-between">

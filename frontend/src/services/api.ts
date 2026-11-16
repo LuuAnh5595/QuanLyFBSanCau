@@ -142,6 +142,10 @@ export const api = {
     await fetchJson(`${getApiBase()}/media/${id}`, { method: 'DELETE' });
   },
 
+  async syncGoogleDrive(): Promise<{ success: boolean; message: string; addedCount: number; totalCount: number }> {
+    return await fetchJson(`${getApiBase()}/media/sync-gdrive`, { method: 'POST' });
+  },
+
   // Ideas
   async getIdeas(status: string = 'all'): Promise<Idea[]> {
     const json = await fetchJson(`${getApiBase()}/ideas?status=${status}`);
