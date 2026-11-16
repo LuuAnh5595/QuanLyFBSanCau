@@ -58,26 +58,13 @@ settingsRouter.post('/verify-auth', async (c) => {
   return c.json({ success: false, message: 'Mật khẩu quản trị không chính xác' }, 401);
 });
 
-// Cập nhật cấu hình hệ thống (Bảo vệ bằng Admin Password)
+// Cập nhật cấu hình hệ thống
 settingsRouter.put('/', async (c) => {
   const repo = new D1Repository(c.env.DB);
   const body = await c.req.json<Record<string, string>>();
   const currentConfigs = await repo.getAllConfigs();
 
-  // Xác thực mật khẩu Admin nếu đã cài đặt
-  const savedPassword = currentConfigs['admin_password'] || c.env.ADMIN_PASSWORD || 'admin123';
-  const providedPassword = c.req.header('x-admin-password') || body['admin_auth'] || '';
-
-  if (savedPassword && savedPassword.trim().length > 0) {
-    if (providedPassword !== savedPassword) {
-      return c.json({ 
-        success: false, 
-        message: 'Mật khẩu quản trị (Admin Password) không chính xác. Vui lòng kiểm tra lại mật khẩu.' 
-      }, 401);
-    }
-  }
-
-  // Loại bỏ trường xác thực tạm thời
+  // Loại bỏ trường xác thực tạm thời nếu có
   delete body['admin_auth'];
 
   // Lọc bỏ những khóa nhạy cảm không bị thay đổi (vẫn ở trạng thái mask)
