@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Post } from '../types';
+import { formatVNDateTime } from '../utils/date';
 import { useFeedback } from '../context/FeedbackContext';
 import { CheckCircle2, XCircle, Edit3, Send, ExternalLink, Trash2, Clock, AlertTriangle, Facebook } from 'lucide-react';
 
@@ -118,7 +119,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               <Facebook className="w-3.5 h-3.5 text-[#1877F2]" fill="#1877F2" />
             </div>
             <div className="text-[11px] text-slate-400 flex items-center gap-1">
-              <span>{new Date(post.created_at || Date.now()).toLocaleString('vi-VN')}</span>
+              <span>{formatVNDateTime(post.created_at)}</span>
               <span>•</span>
               <span>🌍 Công khai</span>
             </div>

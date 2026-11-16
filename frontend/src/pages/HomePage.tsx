@@ -3,6 +3,8 @@ import { DashboardSummary, Post } from '../types';
 import { PostCard } from '../components/PostCard';
 import { Sparkles, Clock, CheckCircle2, Image, Lightbulb, Zap, ArrowRight, Loader2 } from 'lucide-react';
 
+import { formatVNTime } from '../utils/date';
+
 interface HomePageProps {
   summary: DashboardSummary | null;
   onNavigateTab: (tab: string) => void;
@@ -196,7 +198,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   {log.details && <div className="text-[11px] text-slate-400 truncate">{log.details}</div>}
                 </div>
                 <span className="text-[10px] text-slate-400 shrink-0">
-                  {new Date(log.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  {formatVNTime(log.created_at)}
                 </span>
               </div>
             ))}

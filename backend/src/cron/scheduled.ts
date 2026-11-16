@@ -4,37 +4,126 @@ import { GeminiService } from '../services/gemini';
 import { TelegramService } from '../services/telegram';
 import { Post } from '../types/models';
 
+/**
+ * Lấy thông tin thời gian hiện tại chuẩn theo múi giờ Việt Nam (Asia/Ho_Chi_Minh, UTC+7)
+ */
+function getVietnamTimeInfo() {
+  const now = new Date();
+
+  // YYYY-MM-DD
+  const dateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+
+  // HH:mm (24-hour)
+  const timeStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(now);
+
+  const [hourStr, minuteStr] = timeStr.split(':');
+  const hour = parseInt(hourStr, 10);
+  const minute = parseInt(minuteStr, 10);
+  const currentTotalMinutes = hour * 60 + minute;
+
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    weekday: 'short'
+  }).format(now);
+  const isWeekend = weekday === 'Sat' || weekday === 'Sun';
+
+  return {
+    dateStr,
+    timeStr,
+    hour,
+    minute,
+    currentTotalMinutes,
+    weekday,
+    isWeekend
+  };
+}
+
 export async function handleScheduledEvent(event: ScheduledEvent, env: Env): Promise<void> {
   const repo = new D1Repository(env.DB);
   const configs = await repo.getAllConfigs();
 
-  // Kiểm tra cấu hình bật/tắt tự động
+  // 1. Kiểm tra cấu hình bật/tắt tự động
   const autoPostEnabled = configs['auto_post_enabled'] !== '0';
   if (!autoPostEnabled && event.cron !== 'manual_trigger') {
-    await repo.addLog('info', 'cron_skipped', 'Tự động tạo bài đang bị tắt trong cấu hình.');
     return;
   }
 
-  // Nếu là trigger tự động từ Cron (không phải bấm nút chạy thử)
-  if (event.cron !== 'manual_trigger') {
-    const vnDate = new Date(Date.now() + 7 * 3600 * 1000);
-    const dayOfWeek = vnDate.getUTCDay(); // 0: CN, 1: T2, ..., 6: T7
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const vnTime = getVietnamTimeInfo();
 
-    // Kiểm tra cấu hình ngày đăng (Tất cả, Ngày thường, Cuối tuần)
+  // 2. Nếu là trigger tự động từ Cron (không phải bấm nút test manual_trigger)
+  if (event.cron !== 'manual_trigger') {
+    // A. Kiểm tra cấu hình ngày đăng (Tất cả, Ngày thường, Cuối tuần)
     const autoPostDays = configs['auto_post_days'] || 'all';
-    if (autoPostDays === 'weekdays' && isWeekend) {
-      await repo.addLog('info', 'cron_skipped_weekend', 'Bỏ qua vì cấu hình chỉ chạy vào ngày thường (T2 - T6).');
+    if (autoPostDays === 'weekdays' && vnTime.isWeekend) {
       return;
     }
-    if (autoPostDays === 'weekends' && !isWeekend) {
-      await repo.addLog('info', 'cron_skipped_weekday', 'Bỏ qua vì cấu hình chỉ chạy vào cuối tuần (T7 - CN).');
+    if (autoPostDays === 'weekends' && !vnTime.isWeekend) {
       return;
+    }
+
+    // B. Kiểm tra khung giờ đăng (auto_post_slots)
+    const rawSlots = configs['auto_post_slots'] || '08:30, 14:30, 18:30';
+    const slots = rawSlots.split(',').map(s => s.trim()).filter(Boolean);
+
+    let matchedSlot: string | null = null;
+    for (const slot of slots) {
+      const match = slot.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) continue;
+      const sH = parseInt(match[1], 10);
+      const sM = parseInt(match[2], 10);
+      const slotMinutes = sH * 60 + sM;
+
+      // Khoảng cách thời gian: vì cron chạy định kỳ mỗi 10 phút,
+      // bất kỳ khung giờ nào cũng nằm trong phạm vi chênh lệch <= 5 phút của 1 nhịp chạy.
+      // Dùng ngưỡng 6 phút để đảm bảo không bị trượt nhịp.
+      const diff = Math.abs(vnTime.currentTotalMinutes - slotMinutes);
+      if (diff <= 6) {
+        // Kiểm tra xem khung giờ này trong ngày hôm nay đã được tạo bài chưa
+        const slotKey = `cron_done_${vnTime.dateStr}_${slot.replace(':', '')}`;
+        if (configs[slotKey]) {
+          // Khung giờ này hôm nay đã tạo bài rồi, không tạo trùng
+          continue;
+        }
+        matchedSlot = slot;
+        break;
+      }
+    }
+
+    // Nếu thời điểm này không khớp khung giờ nào người dùng cài đặt -> Dừng lại ngay
+    if (!matchedSlot) {
+      return;
+    }
+
+    // Đánh dấu khung giờ này hôm nay đã xử lý xong
+    const slotKey = `cron_done_${vnTime.dateStr}_${matchedSlot.replace(':', '')}`;
+    await repo.setConfig(slotKey, '1');
+
+    // C. Kiểm tra số bài tối đa trong ngày (auto_post_max_per_day)
+    const maxPerDay = configs['auto_post_max_per_day'];
+    if (maxPerDay && maxPerDay !== 'unlimited') {
+      const maxCount = parseInt(maxPerDay, 10);
+      const todayCountKey = `cron_count_${vnTime.dateStr}`;
+      const currentCount = parseInt(configs[todayCountKey] || '0', 10);
+      if (currentCount >= maxCount) {
+        await repo.addLog('info', 'cron_limit_reached', `Đã đạt giới hạn tối đa ${maxCount} bài/ngày (Giờ VN: ${vnTime.timeStr}).`);
+        return;
+      }
+      await repo.setConfig(todayCountKey, String(currentCount + 1));
     }
   }
 
   try {
-    await repo.addLog('info', 'cron_started', `Bắt đầu tiến trình tạo bài viết theo lịch: ${event.cron}`);
+    await repo.addLog('info', 'cron_started', `Bắt đầu tiến trình tạo bài viết theo lịch (Giờ VN: ${vnTime.timeStr} ngày ${vnTime.dateStr})`);
 
     // Lấy Fanpage mặc định
     const fanpage = await repo.getDefaultFanpage();
