@@ -7,27 +7,101 @@ import { handleScheduledEvent } from '../cron/scheduled';
 
 const settingsRouter = new Hono<{ Bindings: Env }>();
 
-// Lấy toàn bộ cấu hình hệ thống
+const SENSITIVE_KEYS = [
+  'gemini_api_key',
+  'fb_page_access_token',
+  'telegram_bot_token',
+  'telegram_webhook_secret',
+  'admin_password'
+];
+
+function maskSecret(val?: string | null): string {
+  if (!val || val.trim().length === 0) return '';
+  const trimmed = val.trim();
+  if (trimmed.length <= 10) return '********';
+  const prefix = trimmed.substring(0, 6);
+  const suffix = trimmed.substring(trimmed.length - 4);
+  return `${prefix}...****...${suffix}`;
+}
+
+function isMasked(val?: string | null): boolean {
+  if (!val) return false;
+  return val.includes('...****...') || val === '********';
+}
+
+// Lấy toàn bộ cấu hình hệ thống (Đã che giấu các khóa bí mật)
 settingsRouter.get('/', async (c) => {
   const repo = new D1Repository(c.env.DB);
   const configs = await repo.getAllConfigs();
-  return c.json({ success: true, data: configs });
+  
+  const safeConfigs: Record<string, string> = { ...configs };
+  for (const key of SENSITIVE_KEYS) {
+    if (safeConfigs[key]) {
+      safeConfigs[key] = maskSecret(safeConfigs[key]);
+    }
+  }
+
+  return c.json({ success: true, data: safeConfigs });
 });
 
-// Cập nhật cấu hình hệ thống
+// Xác thực nhanh mật khẩu quản trị
+settingsRouter.post('/verify-auth', async (c) => {
+  const repo = new D1Repository(c.env.DB);
+  const body = await c.req.json().catch(() => ({}));
+  const password = body.password || c.req.header('x-admin-password') || '';
+  const configs = await repo.getAllConfigs();
+  const savedPassword = configs['admin_password'] || c.env.ADMIN_PASSWORD || 'admin123';
+
+  if (!savedPassword || password === savedPassword) {
+    return c.json({ success: true, message: 'Xác thực thành công' });
+  }
+  return c.json({ success: false, message: 'Mật khẩu quản trị không chính xác' }, 401);
+});
+
+// Cập nhật cấu hình hệ thống (Bảo vệ bằng Admin Password)
 settingsRouter.put('/', async (c) => {
   const repo = new D1Repository(c.env.DB);
   const body = await c.req.json<Record<string, string>>();
+  const currentConfigs = await repo.getAllConfigs();
 
-  // Lưu toàn bộ cấu hình trong 1 lượt mạng Batch Transaction duy nhất
-  await repo.setConfigsBatch(body);
+  // Xác thực mật khẩu Admin nếu đã cài đặt
+  const savedPassword = currentConfigs['admin_password'] || c.env.ADMIN_PASSWORD || 'admin123';
+  const providedPassword = c.req.header('x-admin-password') || body['admin_auth'] || '';
+
+  if (savedPassword && savedPassword.trim().length > 0) {
+    if (providedPassword !== savedPassword) {
+      return c.json({ 
+        success: false, 
+        message: 'Mật khẩu quản trị (Admin Password) không chính xác. Vui lòng kiểm tra lại mật khẩu.' 
+      }, 401);
+    }
+  }
+
+  // Loại bỏ trường xác thực tạm thời
+  delete body['admin_auth'];
+
+  // Lọc bỏ những khóa nhạy cảm không bị thay đổi (vẫn ở trạng thái mask)
+  const cleanBody: Record<string, string> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (SENSITIVE_KEYS.includes(key)) {
+      if (isMasked(value)) {
+        // Người dùng không sửa trường này, giữ nguyên giá trị thật trong DB
+        continue;
+      }
+    }
+    cleanBody[key] = value;
+  }
+
+  if (Object.keys(cleanBody).length > 0) {
+    await repo.setConfigsBatch(cleanBody);
+  }
 
   // Tự động kích hoạt Webhook cho Telegram Bot
-  const token = body['telegram_bot_token'] || (await repo.getConfig('telegram_bot_token'));
-  if (token) {
+  const token = cleanBody['telegram_bot_token'] || currentConfigs['telegram_bot_token'];
+  if (token && !isMasked(token)) {
     const origin = new URL(c.req.url).origin;
     const webhookUrl = `${origin}/api/telegram/webhook`;
-    const secret = body['telegram_webhook_secret'] || (await repo.getConfig('telegram_webhook_secret')) || c.env.TELEGRAM_WEBHOOK_SECRET || 'telegram_secret_token_123';
+    const secret = cleanBody['telegram_webhook_secret'] || currentConfigs['telegram_webhook_secret'] || c.env.TELEGRAM_WEBHOOK_SECRET || 'telegram_secret_token_123';
     await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,7 +109,7 @@ settingsRouter.put('/', async (c) => {
     }).catch(() => null);
   }
 
-  await repo.addLog('info', 'settings_updated', 'Cập nhật cấu hình hệ thống');
+  await repo.addLog('info', 'settings_updated', 'Cập nhật cấu hình hệ thống (đã xác thực)');
   return c.json({ success: true, message: 'Đã lưu cấu hình thành công' });
 });
 
@@ -73,7 +147,7 @@ settingsRouter.post('/test-telegram', async (c) => {
   const configs = await repo.getAllConfigs();
   const body = await c.req.json().catch(() => ({}));
 
-  const token = body.token || configs['telegram_bot_token'] || c.env.TELEGRAM_BOT_TOKEN;
+  const token = (body.token && !isMasked(body.token)) ? body.token : (configs['telegram_bot_token'] || c.env.TELEGRAM_BOT_TOKEN);
   const chatId = body.chatId || configs['telegram_chat_id'] || c.env.TELEGRAM_CHAT_ID;
 
   if (!token) {

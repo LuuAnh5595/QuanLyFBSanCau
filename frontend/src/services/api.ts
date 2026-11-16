@@ -182,15 +182,38 @@ export const api = {
   },
 
   // Settings
+  getAdminPassword(): string {
+    return localStorage.getItem('admin_password') || '';
+  },
+  setAdminPassword(pwd: string): void {
+    localStorage.setItem('admin_password', pwd);
+  },
+  async verifyAdminPassword(password: string): Promise<boolean> {
+    try {
+      await fetchJson(`${getApiBase()}/settings/verify-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   async getSettings(): Promise<Record<string, string>> {
     const json = await fetchJson(`${getApiBase()}/settings`);
     return json.data;
   },
 
-  async saveSettings(configs: Record<string, string>): Promise<void> {
+  async saveSettings(configs: Record<string, string>, adminPassword?: string): Promise<void> {
+    const pwd = adminPassword !== undefined ? adminPassword : api.getAdminPassword();
     await fetchJson(`${getApiBase()}/settings`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-admin-password': pwd
+      },
       body: JSON.stringify(configs)
     });
   },

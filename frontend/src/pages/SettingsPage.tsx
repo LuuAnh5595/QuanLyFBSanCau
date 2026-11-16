@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useFeedback } from '../context/FeedbackContext';
-import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle, Link2, Globe, Check } from 'lucide-react';
+import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle, Link2, Globe, Check, ShieldCheck, Lock } from 'lucide-react';
 
 const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông Tuổi Trẻ.
 Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác cho sân cầu lông.
@@ -72,9 +72,12 @@ export const SettingsPage: React.FC = () => {
     setTestResult(null);
 
     try {
-      await api.saveSettings(configs);
+      if (configs['admin_password'] && !configs['admin_password'].includes('****')) {
+        api.setAdminPassword(configs['admin_password']);
+      }
+      await api.saveSettings(configs, api.getAdminPassword());
       setSaveSuccess(true);
-      toast.success('Đã lưu cấu hình hệ thống thành công!');
+      toast.success('Đã lưu cấu hình hệ thống thành công (Được bảo vệ an toàn)!');
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err: any) {
       toast.error('Lưu cài đặt thất bại: ' + err.message);
@@ -247,6 +250,36 @@ export const SettingsPage: React.FC = () => {
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
               Điền URL Worker của bạn sau khi deploy backend (ví dụ: <code className="text-slate-600">https://quan-ly-fb-san-cau.xxx.workers.dev</code>). Để trống nếu chạy proxy cùng domain hoặc chạy local.
+            </p>
+          </div>
+        </div>
+
+        {/* Section: Admin Security */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Bảo mật & Mật khẩu Quản trị (Admin)</span>
+            </h3>
+            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Lock className="w-3 h-3" /> Đã kích hoạt bảo vệ
+            </span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Mật khẩu Quản trị viên (Admin Password):</label>
+            <input
+              type="password"
+              value={configs['admin_password'] || ''}
+              onChange={(e) => {
+                handleChange('admin_password', e.target.value);
+                api.setAdminPassword(e.target.value);
+              }}
+              placeholder="Nhập mật khẩu quản trị..."
+              className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Mật khẩu dùng để xác thực khi lưu cấu hình và bảo vệ hệ thống. Toàn bộ Token/Key API bên dưới được hệ thống che giấu tự động (Masking).
             </p>
           </div>
         </div>
