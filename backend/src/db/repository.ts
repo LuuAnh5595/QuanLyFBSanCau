@@ -29,6 +29,21 @@ export class D1Repository {
     `).bind(key, value, description || null).run();
   }
 
+  async setConfigsBatch(configs: Record<string, string>): Promise<void> {
+    const entries = Object.entries(configs).filter(([_, v]) => v !== undefined);
+    if (entries.length === 0) return;
+    const statements = entries.map(([key, value]) => {
+      return this.db.prepare(`
+        INSERT INTO configs (key, value, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = CURRENT_TIMESTAMP
+      `).bind(key, String(value));
+    });
+    await this.db.batch(statements);
+  }
+
   // ==================== FANPAGES ====================
   async getDefaultFanpage(): Promise<Fanpage | null> {
     const row = await this.db.prepare('SELECT * FROM fanpages WHERE is_active = 1 LIMIT 1').first<Fanpage>();
@@ -230,6 +245,17 @@ export class D1Repository {
     await this.db.prepare('DELETE FROM ideas WHERE id = ?').bind(id).run();
   }
 
+  async countIdeas(status?: string): Promise<number> {
+    let query = 'SELECT COUNT(*) as count FROM ideas';
+    const params: any[] = [];
+    if (status && status !== 'all') {
+      query += ' WHERE status = ?';
+      params.push(status);
+    }
+    const row = await this.db.prepare(query).bind(...params).first<{ count: number }>();
+    return row?.count || 0;
+  }
+
   // ==================== MEDIA ====================
   async getMediaList(options: { tag?: string; limit?: number } = {}): Promise<MediaItem[]> {
     const limit = options.limit || 50;
@@ -244,6 +270,11 @@ export class D1Repository {
 
     const { results } = await this.db.prepare(query).bind(...params).all<MediaItem>();
     return results || [];
+  }
+
+  async countMedia(): Promise<number> {
+    const row = await this.db.prepare('SELECT COUNT(*) as count FROM media').first<{ count: number }>();
+    return row?.count || 0;
   }
 
   async getMediaById(id: string): Promise<MediaItem | null> {

@@ -66,6 +66,12 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_posts_status_created ON posts(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_logs_created ON activity_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ideas_status_created ON ideas(status, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_media_tags ON media(tags);
+
 INSERT OR IGNORE INTO configs (key, value, description) VALUES 
 ('auto_post_enabled', '1', 'Bật/Tắt chế độ tự động viết bài theo lịch cron (1: Bật, 0: Tắt)'),
 ('gemini_api_key', '', 'Google Gemini API Key'),

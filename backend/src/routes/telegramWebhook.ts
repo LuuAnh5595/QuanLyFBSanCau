@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { Buffer } from 'node:buffer';
 import { Env } from '../types/env';
 import { D1Repository } from '../db/repository';
 import { TelegramService } from '../services/telegram';
@@ -214,13 +215,8 @@ telegramWebhookRouter.post('/', async (c) => {
           if (gdriveScriptUrl) {
             const gdrive = new GoogleDriveService(gdriveScriptUrl);
             if (gdrive.isConfigured()) {
-              // Convert buffer to base64
-              let binary = '';
-              const bytes = new Uint8Array(imgBuffer);
-              for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
-              }
-              const base64 = btoa(binary);
+              // Chuyển đổi buffer sang base64 cực nhanh bằng native C++ Buffer
+              const base64 = Buffer.from(imgBuffer).toString('base64');
 
               const uploadRes = await gdrive.uploadFile({
                 fileName: `badminton_${Date.now()}.jpg`,

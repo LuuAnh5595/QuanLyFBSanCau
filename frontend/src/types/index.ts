@@ -1,6 +1,6 @@
 export interface MediaItem {
   id: string;
-  source_type: 'r2' | 'gdrive' | 'external_url';
+  source_type: 'r2' | 'gdrive' | 'external_url' | 'telegram';
   file_name: string;
   public_url: string;
   tags?: string;

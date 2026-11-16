@@ -17,7 +17,7 @@ export interface AppConfig {
 export interface MediaItem {
   id: string;
   fanpage_id?: string;
-  source_type: 'r2' | 'gdrive' | 'external_url';
+  source_type: 'r2' | 'gdrive' | 'external_url' | 'telegram';
   file_name: string;
   r2_key?: string | null;
   public_url: string;
