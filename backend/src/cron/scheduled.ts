@@ -83,11 +83,10 @@ export async function handleScheduledEvent(event: ScheduledEvent, env: Env): Pro
       const sM = parseInt(match[2], 10);
       const slotMinutes = sH * 60 + sM;
 
-      // Khoảng cách thời gian: vì cron chạy định kỳ mỗi 10 phút,
-      // bất kỳ khung giờ nào cũng nằm trong phạm vi chênh lệch <= 5 phút của 1 nhịp chạy.
-      // Dùng ngưỡng 6 phút để đảm bảo không bị trượt nhịp.
+      // Khoảng cách thời gian: vì cron chạy đúng mốc :00 và :30,
+      // Dùng ngưỡng 4 phút để bao phủ cả trường hợp Cloudflare kích hoạt trễ 1-2 phút.
       const diff = Math.abs(vnTime.currentTotalMinutes - slotMinutes);
-      if (diff <= 6) {
+      if (diff <= 4) {
         // Kiểm tra xem khung giờ này trong ngày hôm nay đã được tạo bài chưa
         const slotKey = `cron_done_${vnTime.dateStr}_${slot.replace(':', '')}`;
         if (configs[slotKey]) {

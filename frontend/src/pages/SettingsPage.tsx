@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useFeedback } from '../context/FeedbackContext';
-import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle, Link2, Globe } from 'lucide-react';
+import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle, Link2, Globe, Check } from 'lucide-react';
 
 const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông Tuổi Trẻ.
 Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác cho sân cầu lông.
@@ -334,28 +334,47 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Quick Golden Hours Presets */}
-            <div className="pt-1">
-              <div className="text-[11px] text-slate-500 mb-1">Gợi ý khung giờ vàng Facebook Fanpage:</div>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-slate-700">Lưới giờ vàng linh hoạt (Bấm để bật/tắt):</span>
+                <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">Chạy mốc :00 & :30</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mb-2.5">
+                Cloudflare tự động thức dậy vào các mốc :00 và :30 từ 07:00 đến 22:30 giờ VN để kiểm tra và viết bài theo các giờ bạn đã chọn (đêm nghỉ hoàn toàn).
+              </p>
+              <div className="flex flex-wrap gap-2">
                 {[
-                  { time: '08:30', label: '🌅 08:30 (Sáng)' },
+                  { time: '08:00', label: '🌅 08:00 (Sớm)' },
+                  { time: '08:30', label: '🏸 08:30 (Sáng)' },
+                  { time: '09:00', label: '☕ 09:00 (Sáng)' },
                   { time: '11:30', label: '☀️ 11:30 (Trưa)' },
-                  { time: '17:30', label: '🌇 17:30 (Chiều)' },
+                  { time: '12:00', label: '🍱 12:00 (Trưa)' },
+                  { time: '14:00', label: '⚡ 14:00 (Chiều)' },
+                  { time: '14:30', label: '🏸 14:30 (Chiều)' },
+                  { time: '17:00', label: '🌇 17:00 (Tan tầm)' },
+                  { time: '17:30', label: '🔥 17:30 (Giờ vàng)' },
+                  { time: '19:30', label: '🏸 19:30 (Tối)' },
                   { time: '20:00', label: '🌙 20:00 (Tối)' },
-                ].map((preset) => (
-                  <button
-                    key={preset.time}
-                    type="button"
-                    onClick={() => handleAddSlot(preset.time)}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-medium border transition-colors ${
-                      currentSlots.includes(preset.time)
-                        ? 'bg-emerald-100 border-emerald-300 text-emerald-800 opacity-60 cursor-default'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+                  { time: '20:30', label: '✨ 20:30 (Tối)' },
+                  { time: '21:00', label: '🌃 21:00 (Kèo đêm)' },
+                ].map((preset) => {
+                  const isSelected = currentSlots.includes(preset.time);
+                  return (
+                    <button
+                      key={preset.time}
+                      type="button"
+                      onClick={() => isSelected ? handleRemoveSlot(preset.time) : handleAddSlot(preset.time)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-emerald-400 hover:text-emerald-700'
+                      }`}
+                    >
+                      <span>{preset.label}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

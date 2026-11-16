@@ -15,9 +15,10 @@ database_id = "a3a6240a-509b-4249-b54c-e7d5512f13b2"
 # binding = "BUCKET"
 # bucket_name = "fb-san-cau-media"
 
-# Scheduled Cron Triggers (Chạy mỗi 10 phút để kiểm tra chính xác các khung giờ đăng bài Việt Nam)
+# Scheduled Cron Triggers (Lưới giờ vàng linh hoạt: Chạy mỗi 30 phút từ 07:00 đến 22:30 giờ VN, ban đêm ngủ hoàn toàn)
+# 00-15 UTC tương ứng 07:00 - 22:30 giờ Việt Nam (UTC+7)
 [triggers]
-crons = ["*/10 * * * *"]
+crons = ["0,30 0-15 * * *"]
 
 # Biến môi trường mặc định (Các key nhạy cảm nên đặt qua wrangler secret)
 [vars]
