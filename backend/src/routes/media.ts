@@ -23,19 +23,21 @@ mediaRouter.post('/upload', async (c) => {
   const tags = (formData.get('tags') as string) || 'san_bai';
 
   if (!file) {
-    return c.json({ success: false, message: 'Vui lòng chọn file hình ảnh' }, 400);
+    return c.json({ success: false, message: 'Vui lòng chọn file hình ảnh hoặc video' }, 400);
   }
 
   const mediaId = 'media_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-  const ext = file.name.split('.').pop() || 'jpg';
-  const r2Key = `images/${mediaId}.${ext}`;
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const isVideo = file.type?.startsWith('video/') || ['mp4', 'mov', 'webm', 'mkv', 'avi'].includes(ext);
+  const r2Key = isVideo ? `videos/${mediaId}.${ext}` : `images/${mediaId}.${ext}`;
 
   let publicUrl = '';
 
   if (c.env.BUCKET) {
     // Lưu vào Cloudflare R2
+    const defaultMime = isVideo ? 'video/mp4' : 'image/jpeg';
     await c.env.BUCKET.put(r2Key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type || 'image/jpeg' }
+      httpMetadata: { contentType: file.type || defaultMime }
     });
 
     const publicDomain = c.env.R2_PUBLIC_DOMAIN;
@@ -71,17 +73,17 @@ mediaRouter.post('/import-url', async (c) => {
   const body = await c.req.json();
   const rawUrl = body.url;
   const tags = body.tags || 'san_bai';
-  const fileName = body.file_name || 'Ảnh Google Drive';
+  const fileName = body.file_name || (rawUrl.toLowerCase().includes('.mp4') || rawUrl.toLowerCase().includes('.mov') ? 'Video kho lưu trữ' : 'Ảnh / Video Google Drive');
 
   if (!rawUrl) {
-    return c.json({ success: false, message: 'Vui lòng cung cấp đường dẫn ảnh hoặc liên kết Google Drive' }, 400);
+    return c.json({ success: false, message: 'Vui lòng cung cấp đường dẫn ảnh/video hoặc liên kết Google Drive' }, 400);
   }
 
-  // Cảnh báo nếu người dùng nhập nhầm link Folder thay vì link file ảnh
+  // Cảnh báo nếu người dùng nhập nhầm link Folder thay vì link file ảnh/video
   if (rawUrl.includes('/folders/')) {
     return c.json({
       success: false,
-      message: 'Đường dẫn bạn nhập là liên kết Thư mục (Folder) Google Drive. Để AI lấy được ảnh, vui lòng mở thư mục trên Drive, nhấp chuột phải vào từng file ảnh > Chia sẻ > Sao chép liên kết rồi dán vào đây.'
+      message: 'Đường dẫn bạn nhập là liên kết Thư mục (Folder) Google Drive. Để AI lấy được ảnh/video, vui lòng mở thư mục trên Drive, nhấp chuột phải vào từng file > Chia sẻ > Sao chép liên kết rồi dán vào đây.'
     }, 400);
   }
 

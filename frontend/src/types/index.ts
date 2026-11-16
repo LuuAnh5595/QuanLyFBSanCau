@@ -1,6 +1,7 @@
 export interface MediaItem {
   id: string;
   source_type: 'r2' | 'gdrive' | 'external_url' | 'telegram';
+  media_type?: 'image' | 'video';
   file_name: string;
   public_url: string;
   tags?: string;

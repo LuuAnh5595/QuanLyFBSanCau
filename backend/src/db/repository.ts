@@ -203,12 +203,20 @@ export class D1Repository {
     await this.db.prepare(`UPDATE posts SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
   }
 
-  async updatePostContent(id: string, content: string, media_ids?: string): Promise<void> {
-    await this.db.prepare(`
-      UPDATE posts 
-      SET content = ?, media_ids = COALESCE(?, media_ids), updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `).bind(content, media_ids || null, id).run();
+  async updatePostContent(id: string, content: string, media_ids?: string | null): Promise<void> {
+    if (media_ids !== undefined) {
+      await this.db.prepare(`
+        UPDATE posts 
+        SET content = ?, media_ids = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `).bind(content, media_ids || null, id).run();
+    } else {
+      await this.db.prepare(`
+        UPDATE posts 
+        SET content = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `).bind(content, id).run();
+    }
   }
 
   async deletePost(id: string): Promise<void> {

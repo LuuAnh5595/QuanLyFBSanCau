@@ -18,6 +18,7 @@ export interface MediaItem {
   id: string;
   fanpage_id?: string;
   source_type: 'r2' | 'gdrive' | 'external_url' | 'telegram';
+  media_type?: 'image' | 'video';
   file_name: string;
   r2_key?: string | null;
   public_url: string;

@@ -78,16 +78,19 @@ export class TelegramService {
     };
 
     const hasMedia = !!(mediaUrl && (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')));
+    const isVideo = hasMedia && (mediaUrl.toLowerCase().includes('.mp4') || mediaUrl.toLowerCase().includes('.mov') || mediaUrl.toLowerCase().includes('.webm') || mediaUrl.toLowerCase().includes('/videos/'));
 
-    // Trường hợp 1: Có ảnh và nội dung <= 1000 ký tự (giới hạn caption Telegram là 1024)
+    // Trường hợp 1: Có ảnh/video và nội dung <= 1000 ký tự (giới hạn caption Telegram là 1024)
     if (hasMedia && messageCaption.length <= 1000) {
       try {
-        const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
+        const endpoint = isVideo ? 'sendVideo' : 'sendPhoto';
+        const mediaField = isVideo ? { video: mediaUrl } : { photo: mediaUrl };
+        const response = await fetch(`https://api.telegram.org/bot${this.botToken}/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
-            photo: mediaUrl,
+            ...mediaField,
             caption: messageCaption,
             parse_mode: 'HTML',
             reply_markup: inlineKeyboard
@@ -99,9 +102,9 @@ export class TelegramService {
         if (response.ok && result.ok) {
           return String(result.result.message_id);
         }
-        console.warn('Telegram sendPhoto thất bại, chuyển sang gửi dạng text:', result.description);
+        console.warn(`Telegram ${endpoint} thất bại, chuyển sang gửi dạng text:`, result.description);
       } catch (err: any) {
-        console.warn('Lỗi gọi sendPhoto, chuyển sang gửi dạng text:', err.message);
+        console.warn('Lỗi gọi gửi media Telegram, chuyển sang gửi dạng text:', err.message);
       }
     }
 

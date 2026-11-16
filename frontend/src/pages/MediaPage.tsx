@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MediaItem } from '../types';
 import { api } from '../services/api';
 import { useFeedback } from '../context/FeedbackContext';
-import { Image, Upload, Link as LinkIcon, Trash2, Tag, Loader2, Plus, ExternalLink, RefreshCw, Send, CheckCircle2 } from 'lucide-react';
+import { Image, Upload, Link as LinkIcon, Trash2, Tag, Loader2, Plus, ExternalLink, RefreshCw, Send, CheckCircle2, Video } from 'lucide-react';
 
 export const MediaPage: React.FC = () => {
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
@@ -19,8 +19,14 @@ export const MediaPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast, confirm } = useFeedback();
 
+  const isVideoUrl = (url: string, name?: string) => {
+    const check = (url + ' ' + (name || '')).toLowerCase();
+    return check.includes('.mp4') || check.includes('.mov') || check.includes('.webm') || check.includes('.mkv') || check.includes('/videos/') || check.includes('video');
+  };
+
   const tagOptions = [
     { id: '', label: 'Tất cả' },
+    { id: 'video', label: '🎥 Video' },
     { id: 'san_bai', label: '🏟️ Sân bãi' },
     { id: 'giao_luu', label: '🤝 Giao lưu' },
     { id: 'khuyen_mai', label: '🎁 Khuyến mãi' },
@@ -147,12 +153,12 @@ export const MediaPage: React.FC = () => {
             className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50"
           >
             {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            <span>Tải ảnh lên R2</span>
+            <span>Tải ảnh / video lên</span>
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             className="hidden"
             onChange={handleFileUpload}
           />
@@ -166,7 +172,7 @@ export const MediaPage: React.FC = () => {
             <Send className="w-3.5 h-3.5" />
           </span>
           <div>
-            <strong className="text-blue-900">Cách nạp ảnh nhanh nhất:</strong> Bạn chỉ cần mở Telegram trên điện thoại và gửi trực tiếp ảnh vào Bot! Ảnh sẽ tự động được nạp vào kho AI và đồng bộ lên Google Drive.
+            <strong className="text-blue-900">Cách nạp ảnh & video nhanh nhất:</strong> Bạn chỉ cần mở Telegram trên điện thoại và gửi trực tiếp ảnh hoặc video vào Bot! Dữ liệu sẽ tự động được nạp vào kho AI và đồng bộ lên Google Drive.
           </div>
         </div>
       </div>
@@ -192,48 +198,67 @@ export const MediaPage: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center p-12 text-slate-400 gap-2">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-          <span className="text-xs">Đang tải kho ảnh...</span>
+          <span className="text-xs">Đang tải kho ảnh & video...</span>
         </div>
       ) : mediaList.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          {mediaList.map((media) => (
-            <div
-              key={media.id}
-              className="group relative bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
-            >
-              <div className="relative aspect-square bg-slate-100 overflow-hidden">
-                <img
-                  src={media.public_url}
-                  alt={media.file_name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-                <button
-                  onClick={() => handleDelete(media.id)}
-                  className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                  title="Xóa ảnh"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-                <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm text-[10px] text-white rounded-md font-medium">
-                  {media.source_type === 'gdrive' ? 'Google Drive' : 'R2'}
+          {mediaList.map((media) => {
+            const isVid = isVideoUrl(media.public_url, media.file_name);
+            return (
+              <div
+                key={media.id}
+                className="group relative bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
+              >
+                <div className="relative aspect-square bg-slate-900 overflow-hidden flex items-center justify-center">
+                  {isVid ? (
+                    <video
+                      src={media.public_url}
+                      className="w-full h-full object-cover"
+                      preload="metadata"
+                      controls
+                    />
+                  ) : (
+                    <img
+                      src={media.public_url}
+                      alt={media.file_name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  )}
+                  <button
+                    onClick={() => handleDelete(media.id)}
+                    className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                    title="Xóa"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 flex items-center gap-1 z-10 pointer-events-none">
+                    <span className="px-1.5 py-0.5 bg-black/70 backdrop-blur-sm text-[10px] text-white rounded-md font-medium">
+                      {media.source_type === 'gdrive' ? 'Google Drive' : 'R2'}
+                    </span>
+                    {isVid && (
+                      <span className="px-1.5 py-0.5 bg-rose-600 text-[10px] text-white rounded-md font-bold">
+                        🎥 Video
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-2 text-[11px] flex items-center justify-between gap-1 border-t border-slate-100">
-                <div className="truncate font-medium text-slate-700 flex-1" title={media.file_name}>
-                  {media.file_name}
-                </div>
-                <div className="text-[10px] text-slate-400 shrink-0">
-                  Dùng {media.usage_count} lần
+                <div className="p-2 text-[11px] flex items-center justify-between gap-1 border-t border-slate-100">
+                  <div className="truncate font-medium text-slate-700 flex-1" title={media.file_name}>
+                    {media.file_name}
+                  </div>
+                  <div className="text-[10px] text-slate-400 shrink-0">
+                    Dùng {media.usage_count} lần
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-10 text-center text-xs text-slate-400 space-y-2">
-          <p>Kho ảnh trống. Hãy tải ảnh sân bãi hoặc nhập link Google Drive để AI sử dụng khi đăng bài!</p>
+          <p>Kho ảnh & video trống. Hãy tải ảnh/video sân bãi hoặc nhập link Google Drive để AI sử dụng khi đăng bài!</p>
         </div>
       )}
 
@@ -243,32 +268,32 @@ export const MediaPage: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-4 shadow-xl space-y-3 animate-in fade-in zoom-in-95">
             <h3 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
               <LinkIcon className="w-4 h-4 text-blue-600" />
-              Thêm ảnh từ Google Drive hoặc URL
+              Thêm ảnh / video từ Google Drive hoặc URL
             </h3>
             <p className="text-xs text-slate-500">
-              Dán liên kết ảnh từ Google Drive (chế độ chia sẻ bất kỳ ai có link đều xem được) hoặc link ảnh trực tiếp.
+              Dán liên kết ảnh hoặc video từ Google Drive (chế độ chia sẻ bất kỳ ai có link đều xem được) hoặc link trực tiếp (.jpg, .png, .mp4...).
             </p>
 
             <form onSubmit={handleImportUrl} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Đường dẫn ảnh:</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Đường dẫn ảnh/video:</label>
                 <input
                   type="url"
                   required
                   value={importUrl}
                   onChange={(e) => setImportUrl(e.target.value)}
-                  placeholder="https://drive.google.com/file/d/..."
+                  placeholder="https://drive.google.com/file/d/... hoặc link trực tiếp"
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Tên mô tả ảnh (tùy chọn):</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Tên mô tả (tùy chọn):</label>
                 <input
                   type="text"
                   value={importName}
                   onChange={(e) => setImportName(e.target.value)}
-                  placeholder="VD: Sân số 1 buổi tối đèn sáng"
+                  placeholder="VD: Video pha đập cầu sân 1, Ảnh sân đẹp..."
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -280,6 +305,7 @@ export const MediaPage: React.FC = () => {
                   onChange={(e) => setImportTag(e.target.value)}
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
+                  <option value="video">🎥 Video sân cầu</option>
                   <option value="san_bai">🏟️ Sân bãi</option>
                   <option value="giao_luu">🤝 Giao lưu</option>
                   <option value="khuyen_mai">🎁 Khuyến mãi</option>

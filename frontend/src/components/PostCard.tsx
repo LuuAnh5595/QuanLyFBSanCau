@@ -105,6 +105,11 @@ export const PostCard: React.FC<PostCardProps> = ({
   const previewText = showFull ? post.content : post.content.slice(0, 240);
   const isTruncated = post.content.length > 240;
 
+  const isVideoUrl = (url: string, name?: string) => {
+    const check = (url + ' ' + (name || '')).toLowerCase();
+    return check.includes('.mp4') || check.includes('.mov') || check.includes('.webm') || check.includes('.mkv') || check.includes('/videos/') || check.includes('video');
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
       {/* Facebook Header Preview */}
@@ -149,26 +154,50 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
       </div>
 
-      {/* Post Media Images */}
+      {/* Post Media (Images & Videos) */}
       {mediaList.length > 0 && (
-        <div className="bg-slate-100 border-t border-b border-slate-100">
+        <div className="bg-slate-950 border-t border-b border-slate-100 overflow-hidden">
           {mediaList.length === 1 ? (
-            <img
-              src={mediaList[0].public_url}
-              alt={mediaList[0].file_name}
-              className="w-full max-h-80 object-cover"
-              loading="lazy"
-            />
+            isVideoUrl(mediaList[0].public_url, mediaList[0].file_name) ? (
+              <video
+                src={mediaList[0].public_url}
+                controls
+                preload="metadata"
+                className="w-full max-h-80 bg-black object-contain"
+              />
+            ) : (
+              <img
+                src={mediaList[0].public_url}
+                alt={mediaList[0].file_name}
+                className="w-full max-h-80 object-cover"
+                loading="lazy"
+              />
+            )
           ) : (
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-2 gap-1 bg-slate-100">
               {mediaList.slice(0, 4).map((m, idx) => (
-                <img
-                  key={idx}
-                  src={m.public_url}
-                  alt={m.file_name}
-                  className="w-full h-40 object-cover"
-                  loading="lazy"
-                />
+                isVideoUrl(m.public_url, m.file_name) ? (
+                  <div key={idx} className="relative w-full h-40 bg-black flex items-center justify-center">
+                    <video
+                      src={m.public_url}
+                      className="w-full h-40 object-cover"
+                      preload="metadata"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                      <span className="px-2 py-1 bg-black/70 text-white rounded-lg text-[10px] font-bold">
+                        ▶ Video
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    key={idx}
+                    src={m.public_url}
+                    alt={m.file_name}
+                    className="w-full h-40 object-cover"
+                    loading="lazy"
+                  />
+                )
               ))}
             </div>
           )}

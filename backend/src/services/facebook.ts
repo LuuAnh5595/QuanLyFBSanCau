@@ -24,6 +24,12 @@ export class FacebookService {
     const { content, mediaUrls = [] } = options;
     const validMediaUrls = mediaUrls.filter(url => url && (url.startsWith('http://') || url.startsWith('https://')));
 
+    // Case Video: Kiểm tra nếu có đính kèm video
+    const videoUrl = validMediaUrls.find(url => this.isVideoUrl(url));
+    if (videoUrl) {
+      return await this.publishVideo(content, videoUrl);
+    }
+
     // Case 1: Post with 1 Photo
     if (validMediaUrls.length === 1) {
       return await this.publishSinglePhoto(content, validMediaUrls[0]);
@@ -136,6 +142,35 @@ export class FacebookService {
     return {
       id: postId,
       postUrl: `https://facebook.com/${postId}`
+    };
+  }
+
+  private isVideoUrl(url: string): boolean {
+    const clean = url.toLowerCase().split('?')[0];
+    return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.webm') || clean.endsWith('.mkv') || clean.endsWith('.avi') || url.includes('/videos/') || url.includes('video');
+  }
+
+  private async publishVideo(content: string, videoUrl: string): Promise<FacebookPublishResult> {
+    const url = `https://graph.facebook.com/${this.apiVersion}/${this.pageId}/videos`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: content,
+        file_url: videoUrl,
+        access_token: this.accessToken
+      })
+    });
+
+    const data: any = await response.json();
+    if (!response.ok || data.error) {
+      this.handleGraphError(data.error || response.statusText);
+    }
+
+    const videoId = data.id;
+    return {
+      id: videoId,
+      postUrl: `https://facebook.com/${videoId}`
     };
   }
 
