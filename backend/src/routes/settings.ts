@@ -186,12 +186,21 @@ settingsRouter.post('/test-facebook', async (c) => {
   }
 
   try {
-    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=id,name,fan_count,link&access_token=${accessToken}`;
+    const url = `https://graph.facebook.com/v20.0/${pageId}?fields=id,name&access_token=${accessToken}`;
     const response = await fetch(url);
     const data: any = await response.json();
 
     if (!response.ok || data.error) {
       throw new Error(data.error?.message || response.statusText);
+    }
+
+    if (data.name) {
+      await repo.updateFanpage('default_page', {
+        name: data.name,
+        fb_page_id: pageId,
+        access_token: accessToken,
+        is_active: 1
+      });
     }
 
     return c.json({

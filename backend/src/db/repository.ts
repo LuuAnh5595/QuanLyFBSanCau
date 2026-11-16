@@ -61,6 +61,20 @@ export class D1Repository {
     return await this.db.prepare('SELECT * FROM fanpages WHERE id = ?').bind(id).first<Fanpage>();
   }
 
+  async updateFanpage(id: string, data: { name?: string; fb_page_id?: string; access_token?: string; is_active?: number }): Promise<void> {
+    await this.ensureDefaultFanpage();
+    const fields: string[] = [];
+    const values: any[] = [];
+    if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+    if (data.fb_page_id !== undefined) { fields.push('fb_page_id = ?'); values.push(data.fb_page_id); }
+    if (data.access_token !== undefined) { fields.push('access_token = ?'); values.push(data.access_token); }
+    if (data.is_active !== undefined) { fields.push('is_active = ?'); values.push(data.is_active); }
+    if (fields.length > 0) {
+      values.push(id);
+      await this.db.prepare(`UPDATE fanpages SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run();
+    }
+  }
+
   // ==================== POSTS ====================
   async getPosts(options: { status?: string; limit?: number; offset?: number } = {}): Promise<{ posts: Post[]; total: number }> {
     const limit = options.limit || 20;
