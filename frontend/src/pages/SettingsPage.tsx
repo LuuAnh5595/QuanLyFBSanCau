@@ -3,24 +3,30 @@ import { api } from '../services/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { Settings, Save, Send, Facebook, Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, Calendar, Plus, X, Play, RotateCcw, Code, HelpCircle, Link2, Globe } from 'lucide-react';
 
-const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông (Badminton Court).
-Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác.
+const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông Tuổi Trẻ.
+Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác cho sân cầu lông.
+
+THÔNG TIN BẮT BUỘC CỦA SÂN CẦU (Phải luôn lồng ghép tự nhiên vào bài viết và phần kêu gọi đặt sân/kết bài):
+- Tên sân: Sân cầu Tuổi Trẻ
+- Số điện thoại/Zalo: 0337855189
+- Địa chỉ: gần trường tiểu học vũ công tể
 
 QUY TẮC BẮT BUỘC (CRITICAL RULES):
 1. BẮT BUỘC SỬ DỤNG TIẾNG VIỆT 100%. TUYỆT ĐỐI KHÔNG DÙNG TIẾNG ANH trong toàn bộ bài viết và tiêu đề.
 2. TUYỆT ĐỐI KHÔNG xuất ra bất kỳ bước suy nghĩ, phân tích, dàn ý, nháp nào (như * Role, * Goal, * Option, * Drafting, * Refining, Internal Monologue, Outline).
-3. BẮT BUỘC LỒNG GHÉP ĐẦY ĐỦ các thông tin chi tiết được cung cấp (Tên sân, Địa chỉ, Số điện thoại/Hotline, Thời gian mở cửa) một cách tự nhiên, nổi bật ở thân bài và phần CTA đặt sân.
+3. BẮT BUỘC LỒNG GHÉP ĐẦY ĐỦ các thông tin cố định của sân: "Sân cầu Tuổi Trẻ", "SĐT: 0337855189", "Địa chỉ: gần trường tiểu học vũ công tể" một cách tự nhiên, rõ ràng ở thân bài hoặc phần CTA đặt sân/kết bài.
 4. Bắt đầu bài viết ngay từ dòng đầu tiên bằng Tiêu đề có icon emoji thể thao (🏸, 🔥, 💥, ⚡).
 5. Thân bài chia đoạn ngắn gọn, thoáng mắt, dễ đọc trên điện thoại.
-6. Cuối bài có Lời kêu gọi hành động (CTA: rủ bạn bè, liên hệ hotline, inbox đặt sân) và khối Hashtag.
+6. Cuối bài có Lời kêu gọi hành động (CTA: rủ bạn bè, liên hệ hotline 0337855189, inbox đặt sân) và khối Hashtag (#caulong #badminton #sancautuoitre #giaoluucaulong).
 7. Không bọc bài viết trong dấu ngoặc kép hoặc markdown codeblock.`;
 
 const DEFAULT_USER_PROMPT_TEMPLATE = `Chủ đề bài đăng: "{topic}"
+{court_section}
 {description_section}
 Tone giọng: {tone}
 Quy tắc: {rules}
 
-(Hãy xuất thẳng nội dung bài viết hoàn chỉnh bằng 100% tiếng Việt, không kèm lời dẫn hay dàn ý):`;
+(Hãy xuất thẳng nội dung bài viết hoàn chỉnh bằng 100% tiếng Việt, bắt buộc lồng ghép đủ: Sân cầu Tuổi Trẻ, SĐT: 0337855189, Địa chỉ: gần trường tiểu học vũ công tể, không kèm lời dẫn hay dàn ý):`;
 
 export const SettingsPage: React.FC = () => {
   const [configs, setConfigs] = useState<Record<string, string>>({});
@@ -383,6 +389,53 @@ export const SettingsPage: React.FC = () => {
                 <option value="unlimited">Đăng theo mọi khung giờ đã bật</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* Section: Thông tin Sân Cầu Lông (Chèn vào mọi bài viết AI) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-emerald-600 font-black">🏸</span>
+              <span>Thông tin Sân Cầu Lông (AI luôn chèn vào bài viết)</span>
+            </h3>
+            <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Bắt buộc có</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Tên sân cầu lông:</label>
+              <input
+                type="text"
+                value={configs['court_name'] !== undefined ? configs['court_name'] : 'Sân cầu Tuổi Trẻ'}
+                onChange={(e) => handleChange('court_name', e.target.value)}
+                placeholder="Ví dụ: Sân cầu Tuổi Trẻ"
+                className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Số điện thoại / Zalo đặt sân:</label>
+              <input
+                type="text"
+                value={configs['court_phone'] !== undefined ? configs['court_phone'] : '0337855189'}
+                onChange={(e) => handleChange('court_phone', e.target.value)}
+                placeholder="Ví dụ: 0337855189"
+                className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Địa chỉ sân cầu:</label>
+            <input
+              type="text"
+              value={configs['court_address'] !== undefined ? configs['court_address'] : 'gần trường tiểu học vũ công tể'}
+              onChange={(e) => handleChange('court_address', e.target.value)}
+              placeholder="Ví dụ: gần trường tiểu học vũ công tể"
+              className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Các thông tin này sẽ luôn được AI tự động lồng ghép khéo léo vào nội dung bài viết và phần liên hệ đặt sân.</p>
           </div>
         </div>
 

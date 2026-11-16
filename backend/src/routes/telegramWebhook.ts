@@ -119,7 +119,12 @@ telegramWebhookRouter.post('/', async (c) => {
         const newPost = await gemini.generatePost({
           topic: 'Kèo giao lưu cầu lông sôi động tại sân',
           tone: configs['default_tone'] || c.env.DEFAULT_TONE,
-          customRules: configs['prompt_rules']
+          customRules: configs['prompt_rules'],
+          systemPrompt: configs['system_prompt'],
+          userPromptTemplate: configs['user_prompt_template'],
+          courtName: configs['court_name'],
+          courtPhone: configs['court_phone'],
+          courtAddress: configs['court_address']
         });
 
         await repo.updatePostContent(postId, newPost.content);

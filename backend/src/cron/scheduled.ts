@@ -70,7 +70,10 @@ export async function handleScheduledEvent(event: ScheduledEvent, env: Env): Pro
       tone,
       customRules: rules,
       systemPrompt: configs['system_prompt'],
-      userPromptTemplate: configs['user_prompt_template']
+      userPromptTemplate: configs['user_prompt_template'],
+      courtName: configs['court_name'],
+      courtPhone: configs['court_phone'],
+      courtAddress: configs['court_address']
     });
 
     // 3. Tìm 1 hình ảnh phù hợp trong kho R2 theo tag hoặc lấy ngẫu nhiên

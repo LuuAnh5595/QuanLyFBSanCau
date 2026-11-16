@@ -51,7 +51,10 @@ postsRouter.post('/generate', async (c) => {
       tone,
       customRules: configs['prompt_rules'],
       systemPrompt: configs['system_prompt'],
-      userPromptTemplate: configs['user_prompt_template']
+      userPromptTemplate: configs['user_prompt_template'],
+      courtName: configs['court_name'],
+      courtPhone: configs['court_phone'],
+      courtAddress: configs['court_address']
     });
 
     if (generated.usedModel && generated.usedModel !== geminiModel) {

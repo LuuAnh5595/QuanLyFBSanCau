@@ -7,24 +7,30 @@ export interface GeneratedPost {
   usedModel?: string;
 }
 
-export const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông (Badminton Court).
-Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác.
+export const DEFAULT_SYSTEM_PROMPT = `Bạn là biên tập viên sáng tạo nội dung chuyên nghiệp cho Fanpage Sân Cầu Lông Tuổi Trẻ.
+Nhiệm vụ: Viết bài đăng Facebook hoàn chỉnh, hấp dẫn, thu hút tương tác cho sân cầu lông.
+
+THÔNG TIN BẮT BUỘC CỦA SÂN CẦU (Phải luôn lồng ghép tự nhiên vào bài viết và phần kêu gọi đặt sân/kết bài):
+- Tên sân: Sân cầu Tuổi Trẻ
+- Số điện thoại/Zalo: 0337855189
+- Địa chỉ: gần trường tiểu học vũ công tể
 
 QUY TẮC BẮT BUỘC (CRITICAL RULES):
 1. BẮT BUỘC SỬ DỤNG TIẾNG VIỆT 100%. TUYỆT ĐỐI KHÔNG DÙNG TIẾNG ANH trong toàn bộ bài viết và tiêu đề.
 2. TUYỆT ĐỐI KHÔNG xuất ra bất kỳ bước suy nghĩ, phân tích, dàn ý, nháp nào (như * Role, * Goal, * Option, * Drafting, * Refining, Internal Monologue, Outline).
-3. BẮT BUỘC LỒNG GHÉP ĐẦY ĐỦ các thông tin chi tiết được cung cấp (Tên sân, Địa chỉ, Số điện thoại/Hotline, Thời gian mở cửa) một cách tự nhiên, nổi bật ở thân bài và phần CTA đặt sân.
+3. BẮT BUỘC LỒNG GHÉP ĐẦY ĐỦ các thông tin cố định của sân: "Sân cầu Tuổi Trẻ", "SĐT: 0337855189", "Địa chỉ: gần trường tiểu học vũ công tể" một cách tự nhiên, rõ ràng ở thân bài hoặc phần CTA đặt sân/kết bài.
 4. Bắt đầu bài viết ngay từ dòng đầu tiên bằng Tiêu đề có icon emoji thể thao (🏸, 🔥, 💥, ⚡).
 5. Thân bài chia đoạn ngắn gọn, thoáng mắt, dễ đọc trên điện thoại.
-6. Cuối bài có Lời kêu gọi hành động (CTA: rủ bạn bè, liên hệ hotline, inbox đặt sân) và khối Hashtag.
+6. Cuối bài có Lời kêu gọi hành động (CTA: rủ bạn bè, liên hệ hotline 0337855189, inbox đặt sân) và khối Hashtag (#caulong #badminton #sancautuoitre #giaoluucaulong).
 7. Không bọc bài viết trong dấu ngoặc kép hoặc markdown codeblock.`;
 
 export const DEFAULT_USER_PROMPT_TEMPLATE = `Chủ đề bài đăng: "{topic}"
+{court_section}
 {description_section}
 Tone giọng: {tone}
 Quy tắc: {rules}
 
-(Hãy xuất thẳng nội dung bài viết hoàn chỉnh bằng 100% tiếng Việt, không kèm lời dẫn hay dàn ý):`;
+(Hãy xuất thẳng nội dung bài viết hoàn chỉnh bằng 100% tiếng Việt, bắt buộc lồng ghép đủ: Sân cầu Tuổi Trẻ, SĐT: 0337855189, Địa chỉ: gần trường tiểu học vũ công tể, không kèm lời dẫn hay dàn ý):`;
 
 export class GeminiService {
   private apiKey: string;
@@ -136,13 +142,21 @@ export class GeminiService {
     customRules?: string;
     systemPrompt?: string;
     userPromptTemplate?: string;
+    courtName?: string;
+    courtPhone?: string;
+    courtAddress?: string;
   }): Promise<GeneratedPost> {
     if (!this.apiKey) {
       throw new Error('Chưa cấu hình GEMINI_API_KEY. Vui lòng thiết lập trong Cài đặt hệ thống.');
     }
 
+    const courtName = options.courtName?.trim() || 'Sân cầu Tuổi Trẻ';
+    const courtPhone = options.courtPhone?.trim() || '0337855189';
+    const courtAddress = options.courtAddress?.trim() || 'gần trường tiểu học vũ công tể';
+
     const tone = options.tone || 'năng động, vui tươi, hào hứng, tự nhiên, thân thiện';
-    const rules = options.customRules || 'Sử dụng tiếng Việt tự nhiên, ngắt dòng thoáng, chèn icon/emoji thể thao sinh động, có lời kêu gọi hành động (CTA) như rủ bạn bè, đặt sân, bình luận. Kèm các hashtag #caulong #badminton #giaoluucaulong #sancau';
+    const defaultRules = `Sử dụng tiếng Việt tự nhiên, ngắt dòng thoáng, chèn icon/emoji thể thao sinh động. Bắt buộc có thông tin: ${courtName}, SĐT: ${courtPhone}, Địa chỉ: ${courtAddress}. Có lời kêu gọi hành động (CTA) rủ bạn bè, đặt sân. Kèm các hashtag #caulong #badminton #sancautuoitre #giaoluucaulong`;
+    const rules = options.customRules || defaultRules;
 
     // Sử dụng System Prompt tùy chỉnh của người dùng nếu có, ngược lại dùng mẫu chuẩn tối ưu
     const systemInstruction = (options.systemPrompt && options.systemPrompt.trim())
@@ -153,20 +167,26 @@ export class GeminiService {
     let prompt = '';
     const descText = options.description && options.description.trim() ? options.description.trim() : '';
     const descSection = descText ? `\nTHÔNG TIN QUAN TRỌNG CẦN ĐƯA VÀO BÀI VIẾT:\n${descText}\n` : '';
+    const courtSection = `\nTHÔNG TIN BẮT BUỘC CỦA SÂN CẦU (Phải luôn xuất hiện rõ ràng trong bài viết và phần liên hệ/đặt sân):\n- Sân: ${courtName}\n- SĐT/Zalo đặt sân: ${courtPhone}\n- Địa chỉ: ${courtAddress}\n`;
 
     if (options.userPromptTemplate && options.userPromptTemplate.trim()) {
       prompt = options.userPromptTemplate
         .replace(/\{topic\}/g, options.topic)
+        .replace(/\{court_section\}/g, courtSection)
+        .replace(/\{court_name\}/g, courtName)
+        .replace(/\{court_phone\}/g, courtPhone)
+        .replace(/\{court_address\}/g, courtAddress)
         .replace(/\{description_section\}/g, descSection)
         .replace(/\{description\}/g, descText)
         .replace(/\{tone\}/g, tone)
         .replace(/\{rules\}/g, rules);
     } else {
       prompt = `Chủ đề bài đăng: "${options.topic}"\n`;
+      prompt += courtSection;
       if (descSection) {
         prompt += descSection;
       }
-      prompt += `\nTone giọng: ${tone}\nQuy tắc: ${rules}\n\n(Hãy xuất thẳng nội dung bài viết hoàn chỉnh bằng 100% tiếng Việt, không kèm lời dẫn hay dàn ý):`;
+      prompt += `\nTone giọng: ${tone}\nQuy tắc: ${rules}\n\n(Hãy xuất thẳng nội dung bài viết hoàn chỉnh bằng 100% tiếng Việt, bắt buộc có đủ: ${courtName}, SĐT: ${courtPhone}, Địa chỉ: ${courtAddress}, không kèm lời dẫn hay dàn ý):`;
     }
 
     const requestBody: any = {

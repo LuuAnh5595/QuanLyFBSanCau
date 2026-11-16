@@ -114,7 +114,10 @@ settingsRouter.post('/test-gemini', async (c) => {
       description: 'Giới thiệu sân cầu lông với mặt thảm mới, đèn led chống chói và dịch vụ cho thuê vợt.',
       customRules: configs['prompt_rules'],
       systemPrompt: configs['system_prompt'],
-      userPromptTemplate: configs['user_prompt_template']
+      userPromptTemplate: configs['user_prompt_template'],
+      courtName: configs['court_name'],
+      courtPhone: configs['court_phone'],
+      courtAddress: configs['court_address']
     });
 
     // Nếu model tự động chuyển sang model hoạt động tốt, lưu lại vào CSDL

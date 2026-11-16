@@ -70,17 +70,20 @@ INSERT OR IGNORE INTO configs (key, value, description) VALUES
 ('auto_post_enabled', '1', 'Bật/Tắt chế độ tự động viết bài theo lịch cron (1: Bật, 0: Tắt)'),
 ('gemini_api_key', '', 'Google Gemini API Key'),
 ('gemini_model', 'gemini-3.1-flash-lite', 'Model Gemini sử dụng'),
+('court_name', 'Sân cầu Tuổi Trẻ', 'Tên sân cầu lông'),
+('court_phone', '0337855189', 'Số điện thoại / Zalo đặt sân'),
+('court_address', 'gần trường tiểu học vũ công tể', 'Địa chỉ sân cầu lông'),
 ('telegram_bot_token', '', 'Telegram Bot Token từ @BotFather'),
 ('telegram_chat_id', '', 'Telegram Chat ID hoặc Group ID nhận thông báo'),
 ('telegram_webhook_secret', 'telegram_secret_token_123', 'Secret token bảo vệ webhook Telegram'),
 ('fb_page_id', '', 'Facebook Page ID'),
 ('fb_page_access_token', '', 'Facebook Page Long-lived Access Token'),
 ('default_tone', 'năng động, hào hứng, tự nhiên, thân thiện', 'Tone giọng bài viết AI'),
-('prompt_rules', 'Sử dụng tiếng Việt tự nhiên, emoji phong phú, có hashtag #caulong #badminton #sancau và kêu gọi đặt sân/giao lưu', 'Quy tắc hướng dẫn cho AI khi tạo bài'),
+('prompt_rules', 'Sử dụng tiếng Việt tự nhiên, emoji phong phú. Luôn kèm thông tin: Sân cầu Tuổi Trẻ, SĐT: 0337855189, Địa chỉ: gần trường tiểu học vũ công tể. Có hashtag #caulong #badminton #sancautuoitre và kêu gọi đặt sân/giao lưu', 'Quy tắc hướng dẫn cho AI khi tạo bài'),
 ('admin_password', 'admin123', 'Mật khẩu đăng nhập Web Dashboard');
 
 INSERT OR IGNORE INTO fanpages (id, name, fb_page_id, access_token, is_active) VALUES
-('default_page', 'Fanpage Sân Cầu Lông', '', '', 1);
+('default_page', 'Sân cầu Tuổi Trẻ', '', '', 1);
 
 INSERT OR IGNORE INTO ideas (id, fanpage_id, topic, description, status, generated_by) VALUES
 ('idea_1', 'default_page', 'Kèo giao lưu cầu lông tối nay - Tuyển đồng đội mọi trình độ', 'Bài viết tìm kiếm đồng đội giao lưu, tạo không khí thể thao vui tươi', 'pending', 'user'),
