@@ -79,6 +79,24 @@ settingsRouter.put('/', async (c) => {
     cleanBody[key] = value;
   }
 
+  // Tự động chuyển đổi User Token sang Page Token nếu người dùng dán User Token
+  if (cleanBody['fb_page_access_token'] && !isMasked(cleanBody['fb_page_access_token'])) {
+    const pageId = cleanBody['fb_page_id'] || currentConfigs['fb_page_id'] || c.env.FB_PAGE_ID;
+    const inputToken = cleanBody['fb_page_access_token'];
+    try {
+      const meRes = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${inputToken}`).then(r => r.json() as any);
+      if (meRes?.id && meRes.id !== pageId) {
+        const accountsRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?access_token=${inputToken}`).then(r => r.json() as any);
+        const targetPage = accountsRes?.data?.find((p: any) => p.id === pageId);
+        if (targetPage?.access_token) {
+          cleanBody['fb_page_access_token'] = targetPage.access_token;
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi
+    }
+  }
+
   if (Object.keys(cleanBody).length > 0) {
     await repo.setConfigsBatch(cleanBody);
   }
@@ -240,13 +258,28 @@ settingsRouter.post('/test-facebook', async (c) => {
   const repo = new D1Repository(c.env.DB);
   const configs = await repo.getAllConfigs();
   const pageId = configs['fb_page_id'] || c.env.FB_PAGE_ID;
-  const accessToken = configs['fb_page_access_token'] || c.env.FB_PAGE_ACCESS_TOKEN;
+  let accessToken = configs['fb_page_access_token'] || c.env.FB_PAGE_ACCESS_TOKEN;
 
   if (!pageId || !accessToken) {
     return c.json({ success: false, message: 'Vui lòng nhập Facebook Page ID và Page Access Token trước khi test' }, 400);
   }
 
   try {
+    // Tự động kiểm tra nếu đang là User Token thì đổi sang Page Token
+    try {
+      const meRes = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${accessToken}`).then(r => r.json() as any);
+      if (meRes?.id && meRes.id !== pageId) {
+        const accountsRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?access_token=${accessToken}`).then(r => r.json() as any);
+        const targetPage = accountsRes?.data?.find((p: any) => p.id === pageId);
+        if (targetPage?.access_token) {
+          accessToken = targetPage.access_token;
+          await repo.setConfig('fb_page_access_token', accessToken);
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi
+    }
+
     const url = `https://graph.facebook.com/v20.0/${pageId}?fields=id,name&access_token=${accessToken}`;
     const response = await fetch(url);
     const data: any = await response.json();
